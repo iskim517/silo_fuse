@@ -35,7 +35,7 @@ private:
     */
     bool insert_rec(std::array<char,16> key, size_t val);
     bool serialize(FILE* &f);
-    btree deserialize(FILE* &f);
+    bool deserialize(FILE* &f);
 public:
     btree();
     btree(std::vector<kv> init_node);

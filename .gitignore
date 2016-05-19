@@ -1,3 +1,4 @@
 *.o
 test
 silo_fuse
+srtest

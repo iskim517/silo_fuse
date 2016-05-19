@@ -69,7 +69,7 @@ bool btree::serialize(FILE* &f)
         for(int j=24;j>=0;j-=8) buf[p++] = (node[i].val >> j) % 256;
     }
     for(int j=24;j>=0;j-=8) buf[p++] = (child.size() >> j) % 256;
-    fwrite(buf, sizeof(char), sizeof(buf), f);
+    fwrite(buf, sizeof(char), p, f);
     for(int i=0;i<child.size();i++)
     {
         ret = child[i]->serialize(f);
@@ -77,6 +77,51 @@ bool btree::serialize(FILE* &f)
     }
     return ret;
 }
+
+bool btree::deserialize(FILE* &f)
+{
+    int cnt=0, p=0;
+	char buf[5120];
+	fread(buf, sizeof(char), 4, f);
+    for(int i=0;i<4;i++)
+    {
+        cnt <<= 8;
+		cnt += (unsigned char)buf[i];
+    }
+	
+	fread(buf, sizeof(char), cnt * 20, f);
+    while(cnt--)
+    {
+        std::array<char,16> key;
+        size_t val = 0;
+        for(int i=0;i<16;i++) key[i] = buf[p++];
+        for(int i=0;i<4;i++)
+        {
+            val <<= 8;
+            val += (unsigned char)buf[p++];
+        }
+        kv tmp;
+        tmp.key = key;
+        tmp.val = val;
+        node.push_back(tmp);
+    }
+    cnt = 0;
+ 	fread(buf, sizeof(char), 4, f);
+    for(int i=0;i<4;i++)
+    {
+		cnt <<= 8;
+		cnt += (unsigned char)buf[i];
+    }
+    leaf = !cnt;
+    while(cnt--)
+    {
+        btree* tmp;
+        tmp = new btree();
+        tmp->deserialize(f);
+        child.push_back(tmp);
+    }
+    return true;
+} 
 
 btree::btree()
 {
@@ -195,8 +240,27 @@ bool btree::save(char* dir)
     {
         f = fopen(dir,"w");
     } catch (int e) {
+        fclose(f);
         return false;
     }
-    if(f!=NULL) return serialize(f);
-    return false;
+    bool ret = false;
+    if(f!=NULL) ret = serialize(f);
+    fclose(f);
+    return ret;
+}
+
+bool btree::load(char* dir)
+{
+    FILE *f;
+    try
+    {
+        f = fopen(dir,"r");
+    } catch (int e) {
+        fclose(f);
+        return false;
+    }
+    bool ret = false;
+    if(f!=NULL) ret = deserialize(f);
+    fclose(f);
+    return ret;
 }

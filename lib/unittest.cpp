@@ -3,15 +3,17 @@
 #include<array>
 #include "btree.h"
 
+#define btree_test_sz 1000000
+
 btree btr;
-std::array<char,16>key[1000000];
-size_t val[1000000];
+std::array<char,16>key[btree_test_sz];
+size_t val[btree_test_sz];
 char savedir[100] = "srtest";
 
 
-bool btree_init()
+void btree_init()
 {
-    for(int i=0;i<1000000;i++)
+    for(int i=0;i<btree_test_sz;i++)
     {
         key[i][13] = (i>>16)%256;
         key[i][14] = (i>>8)%256;
@@ -27,7 +29,7 @@ bool btree_init()
 bool btree_insert()
 {
     bool ret = true;
-    for(int i=0;i<1000000;i++)
+    for(int i=0;i<btree_test_sz;i++)
     {
         ret &= btr.insert(key[i],val[i]);
         if(!ret)
@@ -43,7 +45,7 @@ bool btree_find()
 {
     bool ret = true;
     size_t r;
-    for(int i=999999;i>=0;i--)
+    for(int i= btree_test_sz-1;i>=0;i--)
     {
         r = btr.find(key[i]);
         ret &= r == val[i];
@@ -54,6 +56,25 @@ bool btree_find()
 bool btree_save()
 {
     return btr.save(savedir);
+}
+
+bool btree_load()
+{
+    btree lbtr;
+    lbtr.load(savedir);
+    bool ret = true;
+    size_t r;
+    for(int i= btree_test_sz-1;i>=0;i--)
+    {
+        r = lbtr.find(key[i]);
+        ret &= r == val[i];
+        if(!ret)
+        {
+            printf("err on %d\n",i);
+            return false;
+        }
+    }
+    return ret;
 }
 
 long long now()
@@ -68,20 +89,27 @@ int main()
     auto t = now();
     puts("testing btree");
     btree_init();
-    printf("initializing btree in %lld millisecond\n", now() - t);
+    printf("initializing data of size %d in %lld millisecond\n", btree_test_sz, now() - t);
 
     t = now();
     yes = btree_insert();
-    if(yes) printf("insert 1000000 in %lld millisecond\n", now() - t);
+    if(yes) printf("insert in %lld millisecond\n", now() - t);
     else puts("error on btree insert");
 
     t = now();
     yes = btree_find();
-    if(yes) printf("find 1000000 in %lld millisecond\n", now() - t);
+    if(yes) printf("find in %lld millisecond\n", now() - t);
     else puts("error on btree find");
 
     t = now();
     yes = btree_save();
-    if(yes) printf("save 1000000 in %lld millisecond\n", now() - t);
+    if(yes) printf("save in %lld millisecond\n", now() - t);
     else puts("error on btree save");
+
+    t = now();
+    yes = btree_load();
+    if(yes) printf("load and check in %lld millisecond\n", now() - t);
+    else puts("error on btree load");
+
+    remove(savedir);
 }
