@@ -6,26 +6,17 @@
 btree btr;
 std::array<char,16>key[1000000];
 size_t val[1000000];
+char savedir[100] = "srtest";
+
 
 bool btree_init()
 {
-    int a=0,b=0,c=0;
     for(int i=0;i<1000000;i++)
     {
-        key[i][0] = a;
-        key[i][1] = b;
-        key[i][2] = c++;
-        if(c&256)
-        {
-            b++;
-            c = 0;
-        }
-        if(b&256)
-        {
-            a++;
-            b = 0;
-        }
-        for(int j=3;j<16;j++)
+        key[i][13] = (i>>16)%256;
+        key[i][14] = (i>>8)%256;
+        key[i][15] = i%256;
+        for(int j=0;j<13;j++)
         {
             key[i][j] = ((i*3+5)*(j*7+11))%256;
         }
@@ -60,6 +51,11 @@ bool btree_find()
     return ret;
 }
 
+bool btree_save()
+{
+    return btr.save(savedir);
+}
+
 long long now()
 {
     static auto t = std::chrono::high_resolution_clock::now();
@@ -69,9 +65,12 @@ long long now()
 int main()
 {
     bool yes;
-    btree_init();
-    puts("testing btree");
     auto t = now();
+    puts("testing btree");
+    btree_init();
+    printf("initializing btree in %lld millisecond\n", now() - t);
+
+    t = now();
     yes = btree_insert();
     if(yes) printf("insert 1000000 in %lld millisecond\n", now() - t);
     else puts("error on btree insert");
@@ -80,4 +79,9 @@ int main()
     yes = btree_find();
     if(yes) printf("find 1000000 in %lld millisecond\n", now() - t);
     else puts("error on btree find");
+
+    t = now();
+    yes = btree_save();
+    if(yes) printf("save 1000000 in %lld millisecond\n", now() - t);
+    else puts("error on btree save");
 }

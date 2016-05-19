@@ -57,6 +57,27 @@ bool btree::insert_rec(std::array<char,16> key, size_t val)
     }
 }
 
+bool btree::serialize(FILE* &f)
+{
+    int p=0;
+    char buf[5120];
+    bool ret = true;
+    for(int j=24;j>=0;j-=8) buf[p++] = (node.size() >> j) % 256;
+    for(int i=0;i<node.size();i++)
+    {
+        for(int j=0;j<16;j++) buf[p++] = node[i].key[j];
+        for(int j=24;j>=0;j-=8) buf[p++] = (node[i].val >> j) % 256;
+    }
+    for(int j=24;j>=0;j-=8) buf[p++] = (child.size() >> j) % 256;
+    fwrite(buf, sizeof(char), sizeof(buf), f);
+    for(int i=0;i<child.size();i++)
+    {
+        ret = child[i]->serialize(f);
+        if(!ret) return false;
+    }
+    return ret;
+}
+
 btree::btree()
 {
     leaf = true;
@@ -165,4 +186,17 @@ size_t btree::find(std::array<char,16> key)
     if (leaf) return 0;
     int d = std::distance(node.begin(), it);
     return child[d]->find(key);
+}
+
+bool btree::save(char* dir)
+{
+    FILE *f;
+    try
+    {
+        f = fopen(dir,"w");
+    } catch (int e) {
+        return false;
+    }
+    if(f!=NULL) return serialize(f);
+    return false;
 }

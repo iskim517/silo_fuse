@@ -4,7 +4,7 @@
 #include<algorithm>
 #include<vector>
 #include<array>
-#define BTREE_MAX_SZ 511
+#define BTREE_MAX_SZ 255
 class btree
 {
 private:
@@ -34,6 +34,8 @@ private:
     * insert function for child node
     */
     bool insert_rec(std::array<char,16> key, size_t val);
+    bool serialize(FILE* &f);
+    btree deserialize(FILE* &f);
 public:
     btree();
     btree(std::vector<kv> init_node);
@@ -45,5 +47,7 @@ public:
     */
     bool insert(std::array<char,16> key, size_t val);
     size_t find(std::array<char,16> key);
+    bool save(char* dir);
+    bool load(char* dir);
 };
 #endif
