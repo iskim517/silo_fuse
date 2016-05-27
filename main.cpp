@@ -13,22 +13,28 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <memory>
 #include <atomic>
+#include <stdarg.h>
 using namespace std;
 
 struct filedata
 {
 	vector<char> blob;
-	bool opened = false;
-	bool append = false;
-	bool rd = false;
-	bool wr = false;
-	time_t atime;
-	time_t mtime;
-	time_t ctime;
+	time_t atime{ 0 };
+	time_t mtime{ 0 };
+	time_t ctime{ 0 };
 };
 
-map<string, filedata> files;
+struct filedesc
+{
+	shared_ptr<filedata> pfd;
+	bool rd{ false };
+	bool wr{ false };
+	bool ap{ false };
+};
+
+map<string, shared_ptr<filedata>> files;
 
 static int silo_getattr(const char *path, struct stat *stbuf)
 {
@@ -41,7 +47,7 @@ static int silo_getattr(const char *path, struct stat *stbuf)
 		if (itr == files.end()) {
 			return -ENOENT;
 		}
-		auto &&fdt = itr->second;
+		auto &&fdt = *itr->second;
 		stbuf->st_mode = S_IFREG | 0755;
 		stbuf->st_atime = fdt.atime;
 		stbuf->st_mtime = fdt.mtime;
@@ -80,28 +86,23 @@ static int silo_open(const char *path, struct fuse_file_info *fi)
 		return -ENOENT;
 	}
 
-	if ((fi->flags & 3) != O_RDONLY) return -EACCES;
-
-	auto &&fdt = itr->second;
-
-	if (fdt.opened)
-	{
-		return -EACCES;
-	}
+	itr->second->atime = time(nullptr);
+	auto pd = new filedesc();
+	pd->pfd = itr->second;
 
 	switch (fi->flags & 3)
 	{
-		case O_RDONLY: fdt.rd = true; break;
-		case O_WRONLY: fdt.wr = true; break;
-		case O_RDWR: fdt.rd = fdt.wr = true; break;
+		case O_RDONLY: pd->rd = true; break;
+		case O_WRONLY: pd->wr = true; break;
+		case O_RDWR: pd->rd = pd->wr = true; break;
 	}
 
-	fdt.opened = true;
+	fi->fh = reinterpret_cast<uint64_t>(pd);
 
 	return 0;
 }
 
-static int silo_create(const char *path, mode_t, struct fuse_file_info *)
+static int silo_create(const char *path, mode_t, struct fuse_file_info *fi)
 {
 	auto itr = files.find(path);
 	if (itr != files.end())
@@ -116,11 +117,15 @@ static int silo_create(const char *path, mode_t, struct fuse_file_info *)
 		}
 	}
 
-	filedata fd{};
-	fd.opened = true;
-	fd.rd = fd.wr = true;
+	auto pfd = make_shared<filedata>();
+	auto &&fd = *pfd;
 	fd.atime = fd.mtime = fd.ctime = time(nullptr);
-	files.emplace(path, move(fd));
+	files.emplace(path, pfd);
+
+	auto pd = new filedesc();
+	pd->pfd = pfd;
+	pd->rd = pd->wr = true;
+	fi->fh = reinterpret_cast<uint64_t>(pd);
 
 	return 0;
 }
@@ -129,19 +134,17 @@ static int silo_read(const char *path, char *buf, size_t size, off_t offset,
 		      struct fuse_file_info *fi)
 {
 	size_t len;
-	(void) fi;
-	auto itr = files.find(path);
-	if (itr == files.end())
-		return -ENOENT;
 
-	auto &&fdt = itr->second;
-	if (fdt.rd == false) return -EBADF;
+	auto &&desc = *reinterpret_cast<filedesc *>(fi->fh);
+	if (desc.rd == false) return -EBADF;
 
-	len = fdt.blob.size();
+	auto &&blob = desc.pfd->blob;
+
+	len = blob.size();
 	if (offset < len) {
 		if (offset + size > len)
 			size = len - offset;
-		memcpy(buf, &fdt.blob[offset], size);
+		memcpy(buf, &blob[offset], size);
 	} else
 		size = 0;
 
@@ -152,21 +155,20 @@ static int silo_write(const char *path, const char *buf, size_t size, off_t offs
 		      struct fuse_file_info *fi)
 {
 	size_t len;
-	(void) fi;
-	auto itr = files.find(path);
-	if (itr == files.end())
-		return -ENOENT;
 
-	auto &&fdt = itr->second;
-	if (fdt.wr == false) return -EBADF;
+	auto &&desc = *reinterpret_cast<filedesc *>(fi->fh);
+	if (desc.wr == false) return -EBADF;
 
-	len = fdt.blob.size();
+	auto &&fdt = *desc.pfd;
+	auto &&blob = fdt.blob;
+
+	len = blob.size();
 	if (offset + size > len)
 	{
-		fdt.blob.resize(offset + size);
+		blob.resize(offset + size);
 	}
 
-	memcpy(&fdt.blob[offset], buf, size);
+	memcpy(&blob[offset], buf, size);
 
 	fdt.ctime = fdt.mtime = time(nullptr);
 
@@ -175,13 +177,7 @@ static int silo_write(const char *path, const char *buf, size_t size, off_t offs
 
 static int silo_release(const char *path, struct fuse_file_info *fi)
 {
-	auto itr = files.find(path);
-	if (itr == files.end())
-	{
-		return -ENOENT;
-	}
-
-	itr->second.opened = false;
+	delete reinterpret_cast<filedesc *>(fi->fh);
 
 	return 0;
 }
@@ -192,10 +188,6 @@ static int silo_unlink(const char *path)
 	if (itr == files.end())
 	{
 		return -ENOENT;
-	}
-	if (itr->second.opened)
-	{
-		return -EBUSY;
 	}
 
 	files.erase(itr);
@@ -211,11 +203,7 @@ static int silo_truncate(const char *path, off_t size)
 		return -ENOENT;
 	}
 
-	auto &&fdt = itr->second;
-	if (fdt.opened)
-	{
-		return -EBUSY;
-	}
+	auto &&fdt = *itr->second;
 
 	fdt.blob.resize(size);
 
@@ -232,7 +220,7 @@ static int silo_utimens(const char *path, const struct timespec ts[2])
 		return -ENOENT;
 	}
 
-	auto &&fdt = itr->second;
+	auto &&fdt = *itr->second;
 
 	fdt.atime = ts[0].tv_sec;
 	fdt.mtime = ts[1].tv_sec;
@@ -244,10 +232,6 @@ static struct fuse_operations silo_oper;
 
 int main(int argc, char *argv[])
 {
-	filedata tmp;
-	const char *hello = "hello\n";
-	tmp.blob.insert(tmp.blob.end(), hello, hello + strlen(hello));
-	files["/hello"] = move(tmp);
 	silo_oper.getattr = silo_getattr;
 	silo_oper.readdir = silo_readdir;
 	silo_oper.open = silo_open;
