@@ -7,6 +7,9 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <map>
 #include <vector>
 #include <string>
@@ -20,6 +23,9 @@ struct filedata
 	bool append = false;
 	bool rd = false;
 	bool wr = false;
+	time_t atime;
+	time_t mtime;
+	time_t ctime;
 };
 
 map<string, filedata> files;
@@ -37,6 +43,9 @@ static int silo_getattr(const char *path, struct stat *stbuf)
 		}
 		auto &&fdt = itr->second;
 		stbuf->st_mode = S_IFREG | 0755;
+		stbuf->st_atime = fdt.atime;
+		stbuf->st_mtime = fdt.mtime;
+		stbuf->st_ctime = fdt.ctime;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = fdt.blob.size();
 	}
@@ -107,9 +116,10 @@ static int silo_create(const char *path, mode_t, struct fuse_file_info *)
 		}
 	}
 
-	filedata fd;
+	filedata fd{};
 	fd.opened = true;
 	fd.rd = fd.wr = true;
+	fd.atime = fd.mtime = fd.ctime = time(nullptr);
 	files.emplace(path, move(fd));
 
 	return 0;
@@ -158,6 +168,8 @@ static int silo_write(const char *path, const char *buf, size_t size, off_t offs
 
 	memcpy(&fdt.blob[offset], buf, size);
 
+	fdt.ctime = fdt.mtime = time(nullptr);
+
 	return size;
 }
 
@@ -198,12 +210,32 @@ static int silo_truncate(const char *path, off_t size)
 	{
 		return -ENOENT;
 	}
-	if (itr->second.opened)
+
+	auto &&fdt = itr->second;
+	if (fdt.opened)
 	{
 		return -EBUSY;
 	}
 
-	itr->second.blob.resize(size);
+	fdt.blob.resize(size);
+
+	fdt.atime = fdt.mtime = fdt.ctime = time(nullptr);
+
+	return 0;
+}
+
+static int silo_utimens(const char *path, const struct timespec ts[2])
+{
+	auto itr = files.find(path);
+	if (itr == files.end())
+	{
+		return -ENOENT;
+	}
+
+	auto &&fdt = itr->second;
+
+	fdt.atime = ts[0].tv_sec;
+	fdt.mtime = ts[1].tv_sec;
 
 	return 0;
 }
@@ -225,5 +257,6 @@ int main(int argc, char *argv[])
 	silo_oper.unlink = silo_unlink;
 	silo_oper.release = silo_release;
 	silo_oper.truncate = silo_truncate;
+	silo_oper.utimens = silo_utimens;
 	return fuse_main(argc, argv, &silo_oper, NULL);
 }
