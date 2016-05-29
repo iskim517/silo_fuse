@@ -47,7 +47,7 @@ public:
     */
     bool insert(std::array<char,16> key, size_t val);
     size_t find(std::array<char,16> key);
-    bool save(char* dir);
-    bool load(char* dir);
+    bool save(const char* dir);
+    bool load(const char* dir);
 };
 #endif

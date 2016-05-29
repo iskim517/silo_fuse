@@ -13,8 +13,8 @@ public:
 shtable();
 bool insert(std::array<char,16> key, int blocknum, int segmentnum);
 bool find(int& blocknum, int& segmentnum, std::array<char,16> key);
-bool save(char* dir);
-bool load(char* dir);
+bool save(const char* dir);
+bool load(const char* dir);
 };
 
 #endif

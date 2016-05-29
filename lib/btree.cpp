@@ -233,32 +233,18 @@ size_t btree::find(std::array<char,16> key)
     return child[d]->find(key);
 }
 
-bool btree::save(char* dir)
+bool btree::save(const char* dir)
 {
-    FILE *f;
-    try
-    {
-        f = fopen(dir,"w");
-    } catch (int e) {
-        fclose(f);
-        return false;
-    }
+    FILE *f = fopen(dir,"w");
     bool ret = false;
     if(f!=NULL) ret = serialize(f);
     fclose(f);
     return ret;
 }
 
-bool btree::load(char* dir)
+bool btree::load(const char* dir)
 {
-    FILE *f;
-    try
-    {
-        f = fopen(dir,"r");
-    } catch (int e) {
-        fclose(f);
-        return false;
-    }
+    FILE *f = fopen(dir,"r");
     bool ret = false;
     if(f!=NULL) ret = deserialize(f);
     fclose(f);

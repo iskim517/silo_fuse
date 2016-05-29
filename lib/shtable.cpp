@@ -22,12 +22,12 @@ bool shtable::find(int& blocknum, int& segmentnum, std::array<char, 16> key)
     return true;
 }
 
-bool shtable::save(char* dir)
+bool shtable::save(const char* dir)
 {
     return btr.save(dir);
 }
 
-bool shtable::load(char* dir)
+bool shtable::load(const char* dir)
 {
     return btr.load(dir);
 }
