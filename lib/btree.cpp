@@ -81,15 +81,15 @@ bool btree::serialize(FILE* &f)
 bool btree::deserialize(FILE* &f)
 {
     int cnt=0, p=0;
-	char buf[5120];
-	fread(buf, sizeof(char), 4, f);
+    char buf[5120];
+    fread(buf, sizeof(char), 4, f);
     for(int i=0;i<4;i++)
     {
         cnt <<= 8;
-		cnt += (unsigned char)buf[i];
+        cnt += (unsigned char)buf[i];
     }
-	
-	fread(buf, sizeof(char), cnt * 20, f);
+
+    fread(buf, sizeof(char), cnt * 20, f);
     while(cnt--)
     {
         std::array<char,16> key;
@@ -106,11 +106,11 @@ bool btree::deserialize(FILE* &f)
         node.push_back(tmp);
     }
     cnt = 0;
- 	fread(buf, sizeof(char), 4, f);
+    fread(buf, sizeof(char), 4, f);
     for(int i=0;i<4;i++)
     {
-		cnt <<= 8;
-		cnt += (unsigned char)buf[i];
+        cnt <<= 8;
+        cnt += (unsigned char)buf[i];
     }
     leaf = !cnt;
     while(cnt--)
@@ -121,7 +121,7 @@ bool btree::deserialize(FILE* &f)
         child.push_back(tmp);
     }
     return true;
-} 
+}
 
 btree::btree()
 {
