@@ -10,13 +10,16 @@ silo_fuse : main.o
 main.o : main.cpp
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
-test : lib/unittest.o lib/btree.o
+test : lib/unittest.o lib/btree.o lib/libsilo.o
 	$(CXX) -o $@ $^ $(CXXFLAGSNOFUSE)
 
-lib/unittest.o : lib/unittest.cpp lib/btree.o
+lib/unittest.o : lib/unittest.cpp lib/btree.o lib/libsilo.o
 	$(CXX) -c -o $@ $< $(CXXFLAGSNOFUSE)
 
 lib/btree.o : lib/btree.cpp lib/btree.h
+	$(CXX) -c -o $@ $< $(CXXFLAGSNOFUSE)
+
+lib/libsilo.o : lib/libsilo.cpp lib/libsilo.h
 	$(CXX) -c -o $@ $< $(CXXFLAGSNOFUSE)
 
 clean :
