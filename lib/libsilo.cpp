@@ -1,3 +1,4 @@
+#include <utility>
 #include "libsilo.h"
 
 bool do_chunking(std::vector<char> in, std::vector<std::vector<char>>& out)
@@ -12,25 +13,16 @@ bool do_chunking(std::vector<char> in, std::vector<std::vector<char>>& out)
         it_r++;
         if(!(window%CHUNK_MOD))
         {
-            std::vector<char> chunk;
-            while(it_l != it_r)
-            {
-                chunk.push_back(*it_l);
-                it_l++;
-            }
-            out.push_back(chunk);
+            std::vector<char> chunk{it_l, it_r};
+            out.emplace_back(std::move(chunk));
             window = 0;
+            it_l = it_r;
         }
     }
     if(it_l != in.end())
     {
-        std::vector<char> chunk;
-        while(it_l != in.end())
-        {
-            chunk.push_back(*it_l);
-            it_l++;
-        }
-        out.push_back(chunk);
+        std::vector<char> chunk{it_l, in.end()};
+        out.push_back(std::move(chunk));
     }
     return true;
 }
