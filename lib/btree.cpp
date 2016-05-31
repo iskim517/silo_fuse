@@ -18,7 +18,7 @@ void btree::split(btree* &right, kv& center)
     node.resize(node.size()-rn.size()-1);
     return;
 }
-bool btree::insert_rec(std::array<char,16> key, size_t val)
+bool btree::insert_rec(std::array<char,16> key, int val)
 {
     auto it = std::lower_bound(node.begin(), node.end(), key);
     if (it != node.end() && it->key == key) return false;
@@ -93,7 +93,7 @@ bool btree::deserialize(FILE* &f)
     while(cnt--)
     {
         std::array<char,16> key;
-        size_t val = 0;
+        int val = 0;
         for(int i=0;i<16;i++) key[i] = buf[p++];
         for(int i=0;i<4;i++)
         {
@@ -152,7 +152,7 @@ size_t btree::size()
     return node.size();
 }
 
-bool btree::insert(std::array<char,16> key, size_t val)
+bool btree::insert(std::array<char,16> key, int val)
 {
     if (node.empty())
     {
@@ -224,7 +224,7 @@ bool btree::insert(std::array<char,16> key, size_t val)
     }
 }
 
-size_t btree::find(std::array<char,16> key)
+int btree::find(std::array<char,16> key)
 {
     auto it = std::lower_bound(node.begin(), node.end(), key);
     if (it != node.end() && it->key == key) return it->val;

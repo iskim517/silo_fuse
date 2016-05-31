@@ -1,24 +1,17 @@
 #include "shtable.h"
 
-size_t shtable::make_val(int blocknum, int segmentnum)
-{
-    return ((size_t)blocknum << 8) + segmentnum & 0xff;
-}
-
 shtable::shtable(){}
 
-bool shtable::insert(std::array<char,16> key, int blocknum, int segmentnum)
+bool shtable::insert(std::array<char,16> key, int val)
 {
-    size_t val = make_val(blocknum, segmentnum);
     return btr.insert(key, val);
 }
 
-bool shtable::find(int& blocknum, int& segmentnum, std::array<char, 16> key)
+bool shtable::find(int& blocknum, std::array<char, 16> key)
 {
-    size_t val = btr.find(key);
+    int val = btr.find(key);
     if(!val) return false;
-    blocknum = val >> 8;
-    segmentnum = val & 0xff;
+    blocknum = val;
     return true;
 }
 

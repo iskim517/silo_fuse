@@ -12,7 +12,7 @@ private:
     typedef struct keyval
     {
         std::array<char,16> key;
-        size_t val;
+        int val;
         bool operator <(const keyval & other) const
         {
             return key < other.key;
@@ -33,7 +33,7 @@ private:
     /*
     * insert function for child node
     */
-    bool insert_rec(std::array<char,16> key, size_t val);
+    bool insert_rec(std::array<char,16> key, int val);
     bool serialize(FILE* &f);
     bool deserialize(FILE* &f);
 public:
@@ -45,8 +45,8 @@ public:
     /*
     * insert function for root node
     */
-    bool insert(std::array<char,16> key, size_t val);
-    size_t find(std::array<char,16> key);
+    bool insert(std::array<char,16> key, int val);
+    int find(std::array<char,16> key);
     bool save(const char* dir);
     bool load(const char* dir);
 };

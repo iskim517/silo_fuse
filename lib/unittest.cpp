@@ -11,7 +11,7 @@
 
 btree btr;
 std::array<char,16>key[btree_test_sz];
-size_t val[btree_test_sz];
+int val[btree_test_sz];
 char savedir[100] = "srtest";
 
 
@@ -48,7 +48,7 @@ bool btree_insert()
 bool btree_find()
 {
     bool ret = true;
-    size_t r;
+    int r;
     for(int i= btree_test_sz-1;i>=0;i--)
     {
         r = btr.find(key[i]);
@@ -67,7 +67,7 @@ bool btree_load()
     btree lbtr;
     lbtr.load(savedir);
     bool ret = true;
-    size_t r;
+    int r;
     for(int i= btree_test_sz-1;i>=0;i--)
     {
         r = lbtr.find(key[i]);

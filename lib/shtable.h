@@ -8,11 +8,10 @@ class shtable
 {
 private:
 btree btr;
-size_t make_val(int blocknum, int segmentnum);
 public:
 shtable();
-bool insert(std::array<char,16> key, int blocknum, int segmentnum);
-bool find(int& blocknum, int& segmentnum, std::array<char,16> key);
+bool insert(std::array<char,16> key, int val);
+bool find(int& val, std::array<char,16> key);
 bool save(const char* dir);
 bool load(const char* dir);
 };
