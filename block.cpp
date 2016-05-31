@@ -49,7 +49,7 @@ chunk block::getchunk(const md5val &hash)
 
 	struct stat st;
 	fstat(fd, &st);
-	
+
 	chunk ret;
 	chunk_file_header header;
 
