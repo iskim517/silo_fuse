@@ -10,7 +10,7 @@
 #define btree_test_sz 1000000
 
 btree btr;
-std::array<char,16>key[btree_test_sz];
+std::array<unsigned char,16>key[btree_test_sz];
 int val[btree_test_sz];
 char savedir[100] = "srtest";
 

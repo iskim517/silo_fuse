@@ -2,12 +2,12 @@
 
 shtable::shtable(){}
 
-bool shtable::insert(std::array<char,16> key, int val)
+bool shtable::insert(std::array<unsigned char,16> key, int val)
 {
     return btr.insert(key, val);
 }
 
-bool shtable::find(int& blocknum, std::array<char, 16> key)
+bool shtable::find(int& blocknum, std::array<unsigned char, 16> key)
 {
     int val = btr.find(key);
     if(!val) return false;
