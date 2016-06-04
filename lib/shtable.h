@@ -2,7 +2,7 @@
 #ifndef _SHTABLE_H_
 #define _SHTABLE_H_
 
-#include "btree"
+#include "btree.h"
 
 class shtable
 {
