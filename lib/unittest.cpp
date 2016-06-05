@@ -132,7 +132,7 @@ void rand_file_init()
 
 bool lib_chunk()
 {
-    return do_chunking(libfile,chunks);
+    return do_chunking(&libfile[0], libfile.size(), chunks);
 }
 
 bool lib_chunk_check()
