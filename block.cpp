@@ -102,7 +102,7 @@ void block::addchunk(const chunk &chk, uint64_t initref)
 	{
 		chunk_file_header header;
 		read(fd, &header, sizeof(header));
-		header.refcount++;
+		header.refcount += initref;
 
 		lseek(fd, 0, SEEK_SET);
 		write(fd, &header, sizeof(header));
