@@ -73,7 +73,7 @@ namespace silo
 		static constexpr const char *segbuf_file = "segbuf";
 		static constexpr const char *blkbuf_file = "blockbuf";
 		static constexpr const char *shtable_file = "shtable";
-		static constexpr const char *pending_file = "pending";
+		static constexpr const char *pending_name = "pending";
 		static constexpr const char *volume_dir = "volume/";
 
 		string base;

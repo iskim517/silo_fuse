@@ -117,6 +117,8 @@ void block_buffer::deserialize(const char *file)
 		auto refcount = header.refcount;
 		chunks.emplace_hint(chunks.end(), hash, make_pair(refcount, move(chk)));
 	}
+
+	close(fd);
 }
 
 void block_buffer::serialize(const char *file)
@@ -150,6 +152,8 @@ void block_buffer::serialize(const char *file)
 		write(fd, &blobsize, sizeof(blobsize));
 		write(fd, &chk.blob[0], blobsize);
 	}
+
+	close(fd);
 }
 
 silofs::silofs(const char *basedir) : base(basedir)
@@ -178,33 +182,33 @@ silofs::silofs(const char *basedir) : base(basedir)
 		blocks.emplace_back(blkdir.c_str());
 	}
 
-	int pfd = open((base + pending_file).c_str(), O_RDONLY);
+	int pfd = open((base + pending_name).c_str(), O_RDONLY);
 	if (pfd == -1) return;
 
 	for (;;)
 	{
 		uint32_t namelen;
-		if (read(pfd, &namelen, sizeof(namelen)) != sizeof(lamelen)) break;
+		if (::read(pfd, &namelen, sizeof(namelen)) != sizeof(namelen)) break;
 
-		string name(namelen);
-		if (read(pfd, &name[0], namelen) != namelen)
+		string name(namelen, char{});
+		if (::read(pfd, &name[0], namelen) != namelen)
 		{
 			fprintf(stderr, "pending file error\n");
 			exit(1);
 		}
 
 		auto &&pending = pendings[name];
-		if (read(pfd, &pending.header, sizeof(pending.header)) != sizeof(pending.header) ||
-			read(pfd, &pending.lastseg, sizeof(pending.lastseg)) != sizeof(pending.lastseg) ||
-			read(pfd, &pending.lastblk, sizeof(pending.lastblk)) != sizeof(pending.lastblk) ||
-			read(pfd, &pending.left, sizeof(pending.left)) != sizeof(pending.left))
+		if (::read(pfd, &pending.header, sizeof(pending.header)) != sizeof(pending.header) ||
+			::read(pfd, &pending.lastseg, sizeof(pending.lastseg)) != sizeof(pending.lastseg) ||
+			::read(pfd, &pending.lastblk, sizeof(pending.lastblk)) != sizeof(pending.lastblk) ||
+			::read(pfd, &pending.left, sizeof(pending.left)) != sizeof(pending.left))
 		{
 			fprintf(stderr, "pending file error\n");
 			exit(1);
 		}
 
 		uint32_t chkcnt;
-		if (read(pfd, &chkcnt, sizeof(chkcnt)) != sizeof(chkcnt))
+		if (::read(pfd, &chkcnt, sizeof(chkcnt)) != sizeof(chkcnt))
 		{
 			fprintf(stderr, "pending file error\n");
 			exit(1);
@@ -213,7 +217,7 @@ silofs::silofs(const char *basedir) : base(basedir)
 		while (chkcnt--)
 		{
 			chunk_info info;
-			if (read(pfd, &info, sizeof(info)) != sizeof(info))
+			if (::read(pfd, &info, sizeof(info)) != sizeof(info))
 			{
 				fprintf(stderr, "pending file error\n");
 				exit(1);
@@ -222,6 +226,8 @@ silofs::silofs(const char *basedir) : base(basedir)
 			pending.chunks.push_back(info);
 		}
 	}
+
+	close(pfd);
 }
 
 silofs::~silofs()
@@ -231,50 +237,33 @@ silofs::~silofs()
 
 	shtbl.save((base + shtable_file).c_str());
 	
-	int pfd = open((base + pending_file).c_str(), O_RDONLY);
+	int pfd = open((base + pending_name).c_str(), O_WRONLY);
 	if (pfd == -1) return;
 
-	for (;;)
+	for (auto &&elem : pendings)
 	{
-		uint32_t namelen;
-		if (read(pfd, &namelen, sizeof(namelen)) != sizeof(lamelen)) break;
+		auto &&name = elem.first;
+		auto &&pending = elem.second;
+		uint32_t namelen = name.size();
+		if (::write(pfd, &namelen, sizeof(namelen)) != sizeof(namelen)) break;
+		if (::write(pfd, &name[0], namelen) != namelen) break;
 
-		string name(namelen);
-		if (read(pfd, &name[0], namelen) != namelen)
+		if (::write(pfd, &pending.header, sizeof(pending.header)) != sizeof(pending.header) ||
+			::write(pfd, &pending.lastseg, sizeof(pending.lastseg)) != sizeof(pending.lastseg) ||
+			::write(pfd, &pending.lastblk, sizeof(pending.lastblk)) != sizeof(pending.lastblk) ||
+			::write(pfd, &pending.left, sizeof(pending.left)) != sizeof(pending.left))
+			break;
+
+		uint32_t chkcnt = pending.chunks.size();
+		if (::write(pfd, &chkcnt, sizeof(chkcnt)) != sizeof(chkcnt)) break;
+
+		for (auto &&info : pending.chunks)
 		{
-			fprintf(stderr, "pending file error\n");
-			exit(1);
-		}
-
-		auto &&pending = pendings[name];
-		if (read(pfd, &pending.header, sizeof(pending.header)) != sizeof(pending.header) ||
-			read(pfd, &pending.lastseg, sizeof(pending.lastseg)) != sizeof(pending.lastseg) ||
-			read(pfd, &pending.lastblk, sizeof(pending.lastblk)) != sizeof(pending.lastblk) ||
-			read(pfd, &pending.left, sizeof(pending.left)) != sizeof(pending.left))
-		{
-			fprintf(stderr, "pending file error\n");
-			exit(1);
-		}
-
-		uint32_t chkcnt;
-		if (read(pfd, &chkcnt, sizeof(chkcnt)) != sizeof(chkcnt))
-		{
-			fprintf(stderr, "pending file error\n");
-			exit(1);
-		}
-
-		while (chkcnt--)
-		{
-			chunk_info info;
-			if (read(pfd, &info, sizeof(info)) != sizeof(info))
-			{
-				fprintf(stderr, "pending file error\n");
-				exit(1);
-			}
-
-			pending.chunks.push_back(info);
+			if (::write(pfd, &info, sizeof(info)) != sizeof(info)) break;
 		}
 	}
+
+	close(pfd);
 }
 
 bool silofs::read(const char *file, vector<char> &ret)
@@ -392,20 +381,20 @@ void silofs::write(const char *file, const void *dat, size_t size, file_header h
 		int blkidx;
 		if (shtbl.find(blkidx, repid))
 		{
-			segtoblkbuf(blkidx);
+			segtoblkidx(blkidx);
 		}
 		else
 		{
-			segtoblkidx();
+			segtoblkbuf();
 		}
 
 		if (blkbuf.segments.size() >= SEGMENTS_PER_BLOCK)
 		{
-			fluskblkbuf();
+			flushblkbuf();
 		}
 	}
 
-	flush_pending();
+	flushpending();
 }
 
 void silofs::writeheader(const char *file, file_header header)
@@ -632,7 +621,7 @@ void silofs::flushpending()
 		auto &&pending = itr->second;
 		if (pending.left == 0)
 		{
-			string meta = base + volume_dir + file;
+			string meta = base + volume_dir + itr->first;
 
 			int fd = open(meta.c_str(), O_WRONLY | O_TRUNC, 0755);
 			if (fd == -1)
@@ -641,11 +630,11 @@ void silofs::flushpending()
 				exit(1);
 			}
 
-			write(fd, &pending.header, sizeof(pending.header));
+			::write(fd, &pending.header, sizeof(pending.header));
 
 			for (auto &&info : pending.chunks)
 			{
-				write(fd, &info, sizeof(info));
+				::write(fd, &info, sizeof(info));
 			}
 
 			close(fd);
