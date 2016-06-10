@@ -6,8 +6,8 @@
 
 namespace silo
 {
-	using std::uint16_t;
 	using std::uint64_t;
+	using std::uint32_t;
 	using std::vector;
 	using md5val = std::array<unsigned char, 16>;
 
@@ -21,12 +21,17 @@ namespace silo
 	{
 		uint64_t refcount;
 		comptype type;
+		uint32_t rawsize;
 	} __attribute((packed));
 
 	struct chunk
 	{
 		comptype type;
 		md5val hash;
+		uint32_t rawsize;
 		vector<char> blob;
+
+		static chunk frombuffer(const void *buf, size_t len);
+		vector<char> unzip() const;
 	};
 }
