@@ -4,6 +4,6 @@
 #define CHUNK_MOD 4111
 
 #include <vector>
-bool do_chunking(const void *in, std::size_t len, std::vector<std::vector<char>>& out);
+bool do_chunking(const void *in, std::size_t len, std::vector<std::size_t>& out);
 
 #endif

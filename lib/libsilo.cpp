@@ -1,7 +1,7 @@
 #include <utility>
 #include "libsilo.h"
 
-bool do_chunking(const void *buf, std::size_t size, std::vector<std::vector<char>>& out)
+bool do_chunking(const void *buf, std::size_t size, std::vector<std::size_t>& out)
 {
     unsigned int window = 0;
     if(!out.empty()) return false;
@@ -14,14 +14,14 @@ bool do_chunking(const void *buf, std::size_t size, std::vector<std::vector<char
         it_r++;
         if(!(window%CHUNK_MOD))
         {
-            out.emplace_back(it_l, it_r);
+            out.emplace_back(it_r - static_cast<const char *>(buf));
             window = 0;
             it_l = it_r;
         }
     }
     if(it_l != it_end)
     {
-        out.emplace_back(it_l, it_end);
+        out.emplace_back(it_end - static_cast<const char *>(buf));
     }
     return true;
 }
