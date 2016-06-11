@@ -1,13 +1,22 @@
 CXX = g++
-CXXFLAGS = -O0 -g -std=gnu++11 `pkg-config fuse --cflags --libs`
-CXXFLAGSNOFUSE = -O0 -g -std=gnu++11
+CXXFLAGS = -O0 -g -std=gnu++14 -lcrypto -lz `pkg-config fuse --cflags --libs`
+CXXFLAGSNOFUSE = -O0 -g -std=gnu++14
 
 all : silo_fuse
 
-silo_fuse : main.o
-	$(CXX) -o $@ $< $(CXXFLAGS)
+silo_fuse : main.o lib/btree.o lib/libsilo.o chunk.o block.o silo.o lib/shtable.o
+	$(CXX) -o $@ $^ $(CXXFLAGS)
 
 main.o : main.cpp
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+chunk.o : chunk.cpp
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+block.o : block.cpp
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+silo.o : silo.cpp
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
 test : lib/unittest.o lib/btree.o lib/libsilo.o
