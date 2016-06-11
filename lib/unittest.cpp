@@ -118,7 +118,7 @@ void test_btree()
     remove(savedir);
 }
 
-#define lib_file_test_sz 2097152 //2MB
+#define lib_file_test_sz 209715200 //200MB
 std::vector<char> libfile;
 std::vector<size_t> chunks;
 void rand_file_init()
@@ -150,15 +150,16 @@ void lib_chunk_analysis()
     printf("number of chunks : %lu\n", chunks.size());
     printf("average size of chunk : %lfB\n", (double) lib_file_test_sz / (double) chunks.size());
     unsigned int mx = 0, mn = 2147483647;
-	size_t last = 0;
-    for(int i=0;i<chunks.size();i++)
+	unsigned int last = 0;
+    for(int i=0;i<chunks.size() - 1;i++)
     {
-		size_t chunksize = chunks[i] - last;
+		unsigned int chunksize = chunks[i] - last;
         if(chunksize > mx) mx = chunksize;
         if(chunksize < mn) mn = chunksize;
 
 		last = chunks[i];
     }
+    if(chunks.back() - last > mx) mx = chunks.back() - last;
     printf("largest chunk : %uB\n", mx);
     printf("smallest chunk : %uB\n", mn);
 }
