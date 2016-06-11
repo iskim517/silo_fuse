@@ -237,8 +237,11 @@ bool btree::save(const char* dir)
 {
     FILE *f = fopen(dir,"w");
     bool ret = false;
-    if(f!=NULL) ret = serialize(f);
-    fclose(f);
+    if(f!=NULL)
+	{
+		ret = serialize(f);
+	    fclose(f);
+	}
     return ret;
 }
 
@@ -246,7 +249,10 @@ bool btree::load(const char* dir)
 {
     FILE *f = fopen(dir,"r");
     bool ret = false;
-    if(f!=NULL) ret = deserialize(f);
-    fclose(f);
+    if(f!=NULL) 
+	{
+		ret = deserialize(f);
+	    fclose(f);
+	}
     return ret;
 }
