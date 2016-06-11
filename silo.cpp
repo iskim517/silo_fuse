@@ -567,6 +567,8 @@ void silofs::segtoblkidx(int idx)
 
 void silofs::segtoblkbuf()
 {
+	blkbuf.segments.insert(segbuf.chunks.begin()->first);
+
 	auto segitr = segbuf.chunks.begin();
 	auto blkitr = blkbuf.chunks.begin();
 	auto segend = segbuf.chunks.end();
@@ -576,6 +578,12 @@ void silofs::segtoblkbuf()
 	{
 		if (blkitr == blkend || segitr->first < blkitr->first)
 		{
+			if (segitr->second.first == 0)
+			{
+				segitr = segbuf.chunks.erase(segitr);
+				continue;
+			}
+
 			blkbuf.chunks.insert(move(*segitr++));
 		}
 		else if (segitr->first > blkitr->first)
@@ -586,7 +594,7 @@ void silofs::segtoblkbuf()
 		{
 			blkitr->second.first += segitr->second.first;
 			blkitr++;
-			segitr++;
+			segitr = segbuf.chunks.erase(segitr);
 		}
 	}
 
