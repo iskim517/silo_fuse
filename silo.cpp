@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <errno.h>
 #include <algorithm>
 #include <dirent.h>
 #include <zlib.h>
@@ -160,6 +161,8 @@ silofs::silofs(const char *basedir) : base(basedir)
 {
 	if (base.back() != '/') base.push_back('/');
 
+	mkdir((base + volume_dir).c_str(), 0755);
+
 	segbuf.deserialize((base + segbuf_file).c_str());
 	blkbuf.deserialize((base + blkbuf_file).c_str());
 
@@ -237,7 +240,7 @@ silofs::~silofs()
 
 	shtbl.save((base + shtable_file).c_str());
 	
-	int pfd = open((base + pending_name).c_str(), O_WRONLY);
+	int pfd = open((base + pending_name).c_str(), O_WRONLY | O_CREAT, 0755);
 	if (pfd == -1) return;
 
 	for (auto &&elem : pendings)
@@ -315,32 +318,32 @@ bool silofs::read(const char *file, vector<char> &ret)
 }
 
 
-file_header silofs::header(const char *file)
+bool silofs::header(const char *file, file_header &header)
 {
 	auto pit = pendings.find(file);
 	if (pit != pendings.end())
 	{
-		return pit->second.header;
+		header = pit->second.header;
+		fprintf(stderr, "header function size %jd\n", header.size);
+		return true;
 	}
 	else
 	{
 		string meta = base + volume_dir + file;
 		int fd = open(meta.c_str(), O_RDONLY);
-		if (fd == -1)
-		{
-			fprintf(stderr, "%s not found\n", file);
-			exit(1);
-		}
+		if (fd == -1) return false;
 
 		file_header ret;
-		if (::read(fd, &ret, sizeof(ret)) != sizeof(ret))
+		if (::read(fd, &header, sizeof(header)) != sizeof(header))
 		{
 			fprintf(stderr, "%s reading error\n", file);
 			exit(1);
 		}
 
+		fprintf(stderr, "header function size %jd\n", header.size);
+
 		close(fd);
-		return ret;
+		return true;
 	}
 }
 
@@ -348,10 +351,18 @@ void silofs::write(const char *file, const void *dat, size_t size, file_header h
 {
 	remove(file);
 
+	fprintf(stderr, "trying to write %s of size %jd\n", file, size);
+
 	vector<size_t> chunked;
 	do_chunking(dat, size, chunked);
 
+	fprintf(stderr, "chunk completed with number %jd\n", chunked.size());
+
 	pending_file &pending = pendings[file];
+
+	header.size = size;
+	header.chunks = chunked.size();
+
 	pending.header = header;
 	pending.chunks.resize(chunked.size(), {chunk_info::pending, {}});
 	pending.left = chunked.size();
@@ -361,6 +372,7 @@ void silofs::write(const char *file, const void *dat, size_t size, file_header h
 	for (size_t i = 0; i < chunked.size(); i++)
 	{
 		size_t next = chunked[i];
+		fprintf(stderr, "current chunk: %jd to %jd (%jd bytes)\n", last, next, next - last);
 		auto chk = chunk::frombuffer(dat_begin + last, next - last);
 		last = next;
 
@@ -399,22 +411,41 @@ void silofs::write(const char *file, const void *dat, size_t size, file_header h
 
 void silofs::writeheader(const char *file, file_header header)
 {
+	fprintf(stderr, "writeheader size %jd\n", header.size);
 	auto pit = pendings.find(file);
 	if (pit != pendings.end())
 	{
-		pit->second.header = header;
+		fprintf(stderr, "writeheader size %jd\n", header.size);
+		pit->second.header.atime = header.atime;
+		pit->second.header.mtime = header.mtime;
+		pit->second.header.ctime = header.ctime;
 	}
 	else
 	{
 		string meta = base + volume_dir + file;
-		int fd = open(meta.c_str(), O_WRONLY);
+		int fd = open(meta.c_str(), O_RDWR);
 		if (fd == -1)
 		{
 			fprintf(stderr, "%s not found\n", file);
 			exit(1);
 		}
 
-		if (::write(fd, &header, sizeof(header)) != sizeof(header))
+		file_header newheader;
+
+		if (::read(fd, &newheader, sizeof(newheader)) != sizeof(newheader))
+		{
+			fprintf(stderr, "%s read error\n", file);
+			exit(1);
+		}
+
+		fprintf(stderr, "writeheader before %jd\n", newheader.size);
+
+		newheader.atime = header.atime;
+		newheader.mtime = header.mtime;
+		newheader.ctime = header.ctime;
+
+		lseek(fd, 0, SEEK_SET);
+		if (::write(fd, &newheader, sizeof(newheader)) != sizeof(newheader))
 		{
 			fprintf(stderr, "%s write error\n", file);
 			exit(1);
@@ -424,7 +455,7 @@ void silofs::writeheader(const char *file, file_header header)
 	}
 }
 
-void silofs::remove(const char *file)
+bool silofs::remove(const char *file)
 {
 	auto pit = pendings.find(file);
 	if (pit != pendings.end())
@@ -435,6 +466,8 @@ void silofs::remove(const char *file)
 		}
 
 		pendings.erase(pit);
+
+		return true;
 	}
 	else
 	{
@@ -442,13 +475,13 @@ void silofs::remove(const char *file)
 		int fd = open(meta.c_str(), O_RDONLY);
 		if (fd == -1)
 		{
-			return;
+			return false;
 		}
 
 		file_header header;
 		if (::read(fd, &header, sizeof(header)) != sizeof(header))
 		{
-			fprintf(stderr, "%s reading error\n", file);
+			fprintf(stderr, "%s reading error 1 %jd\n", file, sizeof(header));
 			exit(1);
 		}
 
@@ -457,7 +490,7 @@ void silofs::remove(const char *file)
 			chunk_info info;
 			if (::read(fd, &info, sizeof(info)) != sizeof(info))
 			{
-				fprintf(stderr, "%s reading error\n", file);
+				fprintf(stderr, "%s reading error 2 %jd\n", file, sizeof(info));
 				exit(1);
 			}
 			releasechunk(info);
@@ -465,6 +498,7 @@ void silofs::remove(const char *file)
 
 		close(fd);
 		unlink(meta.c_str());
+		return true;
 	}
 }
 
@@ -623,12 +657,15 @@ void silofs::flushpending()
 		{
 			string meta = base + volume_dir + itr->first;
 
-			int fd = open(meta.c_str(), O_WRONLY | O_TRUNC, 0755);
+			int fd = open(meta.c_str(), O_WRONLY | O_TRUNC | O_CREAT, 0755);
 			if (fd == -1)
 			{
-				fprintf(stderr, "%s open fail\n", meta.c_str());
+				int err = errno;
+				fprintf(stderr, "flush: %s open fail with errno %d\n", meta.c_str(), err);
 				exit(1);
 			}
+
+			fprintf(stderr, "flush header size %jd\n", pending.header.size);
 
 			::write(fd, &pending.header, sizeof(pending.header));
 
@@ -646,3 +683,4 @@ void silofs::flushpending()
 		}
 	}
 }
+

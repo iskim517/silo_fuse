@@ -33,9 +33,6 @@ namespace silo
 
 	struct file_header
 	{
-		mode_t mod;
-		uid_t uid;
-		gid_t gid;
 		time_t atime, mtime, ctime;
 		off_t size;
 		off_t chunks;
@@ -98,9 +95,18 @@ namespace silo
 		silofs &operator=(const silofs &) = delete;
 
 		bool read(const char *file, vector<char> &ret);
-		file_header header(const char *file);
+		bool header(const char *file, file_header &header);
 		void write(const char *file, const void *dat, size_t size, file_header header);
 		void writeheader(const char *file, file_header header);
-		void remove(const char *file);
+		bool remove(const char *file);
+
+		template <typename Func>
+		void foreachpendingname(Func func)
+		{
+			for (auto &&elem : pendings)
+			{
+				if (func(elem.first) == false) break;
+			}
+		}
 	};
 }

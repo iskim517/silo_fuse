@@ -1,5 +1,6 @@
 #include <vector>
-#include <zilb.h>
+#include <string.h>
+#include <zlib.h>
 #include <limits>
 #include <openssl/md5.h>
 #include "chunk.h"
@@ -21,7 +22,7 @@ chunk chunk::frombuffer(const void *buf, size_t len)
 
 	uLongf destLen = compressBound(len);
 	ret.blob.resize(destLen);
-	if (compress(&ret.blob[0], &destLen, static_cast<const Bytef *>(buf), len)
+	if (compress(reinterpret_cast<Bytef *>(&ret.blob[0]), &destLen, static_cast<const Bytef *>(buf), len)
 		!= Z_OK)
 	{
 		fprintf(stderr, "out of memory\n");
@@ -47,15 +48,21 @@ vector<char> chunk::unzip() const
 {
 	if (type == comptype::raw) return blob;
 
-	vector<char> ret(blob.size());
+	vector<char> ret(rawsize);
 
-	uLongf destLen = blob.size();
-	if (uncompress(&ret[0], &destLen, &blob[0], blob.size()) != Z_OK)
+	uLongf destLen = rawsize;
+	if (uncompress(reinterpret_cast<Bytef *>(&ret[0]), &destLen, 
+		reinterpret_cast<const Bytef *>(&blob[0]), blob.size()) != Z_OK)
 	{
 		fprintf(stderr, "chunk unzip error\n");
 		exit(1);
 	}
 
-	ret.resize(destLen);
+	if (rawsize != destLen)
+	{
+		fprintf(stderr, "chunk rawsize != destLen\n");
+		exit(1);
+	}
+
 	return ret;
 }
