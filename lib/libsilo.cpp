@@ -9,9 +9,10 @@ bool do_chunking(const void *buf, std::size_t size, std::vector<std::size_t>& ou
 				*it_end = it_l + size;
     while(it_r != it_end)
     {
-        window = (window << 8) + (unsigned char) (*it_r) + 17;
+        window = (window * 17) + (unsigned char) (*it_r);
         it_r++;
-        if(!(window % CHUNK_MOD) && (it_r-it_l) >= CHUNK_MIN_SZ)
+        if(!(window % CHUNK_MOD) && it_r-it_l >= CHUNK_MIN_SZ
+                || it_r - it_l >= CHUNK_MAX_SZ)
         {
             out.emplace_back(it_r - static_cast<const char *>(buf));
             window = 0;
