@@ -386,7 +386,7 @@ void silofs::write(const char *file, const void *dat, size_t size, file_header h
 			continue;
 		}
 
-		segbuf.size += next - last;
+		segbuf.size += chk.rawsize;
 		if (segbuf.size < SEGMENT_SIZE) continue;
 
 		md5val repid = segbuf.chunks.begin()->first;
