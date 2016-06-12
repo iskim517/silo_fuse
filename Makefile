@@ -31,5 +31,14 @@ lib/btree.o : lib/btree.cpp lib/btree.h
 lib/libsilo.o : lib/libsilo.cpp lib/libsilo.h
 	$(CXX) -c -o $@ $< $(CXXFLAGSNOFUSE)
 
+lib/shtable.o: lib/shtable.cpp lib/shtable.h lib/btree.o
+	$(CXX) -c -o $@ $< $(CXXFLAGSNOFUSE)
+
+dup : lib/duptest.o lib/shtable.o lib/btree.o lib/libsilo.o
+	$(CXX) -o $@ $^ $(CXXFLAGSNOFUSE) -lcrypto
+
+lib/duptest.o : lib/duptest.cpp lib/shtable.o lib/btree.o lib/libsilo.o
+	$(CXX) -c -o $@ $< $(CXXFLAGSNOFUSE) -lcrypto
+
 clean :
-	$(RM) *.o lib/*.o silo_fuse test
+	$(RM) *.o lib/*.o silo_fuse test dup
