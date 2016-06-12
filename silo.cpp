@@ -372,7 +372,6 @@ void silofs::write(const char *file, const void *dat, size_t size, file_header h
 	for (size_t i = 0; i < chunked.size(); i++)
 	{
 		size_t next = chunked[i];
-		fprintf(stderr, "current chunk: %jd to %jd (%jd bytes)\n", last, next, next - last);
 		auto chk = chunk::frombuffer(dat_begin + last, next - last);
 		last = next;
 
@@ -692,3 +691,7 @@ void silofs::flushpending()
 	}
 }
 
+string silofs::getvolumepath(const char *path)
+{
+	return base + volume_dir + path;
+}

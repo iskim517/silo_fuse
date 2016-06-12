@@ -61,11 +61,13 @@ chunk block::getchunk(const md5val &hash)
 
 	if (read(fd, &header, sizeof(header)) < sizeof(header))
 	{
-		fprintf(stderr, "IO error\n");
+		fprintf(stderr, "chunk %s IO error\n", name.c_str());
 		exit(1);
 	}
 
 	ret.type = header.type;
+	ret.hash = hash;
+	ret.rawsize = header.rawsize;
 
 	ret.blob.resize(st.st_size - sizeof(header));
 	read(fd, &ret.blob[0], st.st_size - sizeof(header));
@@ -77,10 +79,11 @@ void block::addchunk(const chunk &chk, uint64_t initref)
 {
 	string name = basedir + to_string(chk.hash);
 
-	int fd = open(name.c_str(), O_RDWR | O_CREAT, 0775);
+	int fd = open(name.c_str(), O_RDWR | O_CREAT, 0755);
 	if (fd == -1)
 	{
-		fprintf(stderr, "IO error\n");
+		int err = errno;
+		fprintf(stderr, "addchunk %s IO error %d\n", name.c_str(), err);
 		exit(1);
 	}
 
@@ -94,7 +97,7 @@ void block::addchunk(const chunk &chk, uint64_t initref)
 	fstat(fd, &st);
 	if (st.st_size == 0)
 	{
-		chunk_file_header header{initref, chk.type};
+		chunk_file_header header{initref, chk.type, chk.rawsize};
 		write(fd, &header, sizeof(header));
 		write(fd, &chk.blob[0], chk.blob.size());
 	}
@@ -115,7 +118,7 @@ void block::releasechunk(const md5val &hash)
 {
 	string name = basedir + to_string(hash);
 
-	int fd = open(name.c_str(), O_RDWR, 0775);
+	int fd = open(name.c_str(), O_RDWR, 0755);
 	if (fd == -1) return;
 
 	chunk_file_header header;

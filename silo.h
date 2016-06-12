@@ -100,6 +100,8 @@ namespace silo
 		void writeheader(const char *file, file_header header);
 		bool remove(const char *file);
 
+		string getvolumepath(const char *path);
+
 		template <typename Func>
 		void foreachpendingname(Func func)
 		{
