@@ -15,7 +15,32 @@
 char buf[65536];
 unsigned char buf2[65536];
 shtable sht;
-std::string data;
+unsigned int num_chunk, num_dup;
+unsigned long long size_dup, size_org;
+
+void dedup(std::string d)
+{
+    std::vector<size_t> chunked;
+    do_chunking(d.c_str(), d.size(), chunked);
+    num_chunk += chunked.size();
+    size_org += d.size();
+    size_t left = 0;
+    for(size_t c : chunked)
+    {
+        size_t sz = c - left;
+        memset(buf2,0,sizeof(buf2));
+        for(int i=0;left<c;i++)buf2[i] = (unsigned char) d[left++];
+        std::array<unsigned char,16> hash;
+        MD5(buf2,sz,&hash[0]);
+        int bnum;
+        if (sht.find(bnum, hash))
+        {
+            num_dup++;
+            size_dup += sz;
+        }
+        else sht.insert(hash, 1);
+    }
+}
 
 void createdata(DIR* d, std::string addr)
 {
@@ -40,10 +65,12 @@ void createdata(DIR* d, std::string addr)
                 printf("%s fail %d\n", buf, errno);
                 exit(1);
             }
+            std::string tmp = "";
             while(fread(buf,sizeof(char),sizeof(buf),f))
             {
-                data += std::string(buf);
+                tmp += std::string(buf);
             }
+            dedup(tmp);
             fclose(f);
         }
     }
@@ -55,26 +82,6 @@ int main(int argc, char* argv[])
     DIR *f = opendir(argv[1]);
     createdata(f, argv[1]);
     closedir(f);
-    std::vector<size_t> chunked;
-    do_chunking(data.c_str(), data.size(), chunked);
-    unsigned int num_chunk = chunked.size(), num_dup = 0;
-    unsigned long long size_dup = 0, size_org = data.size();
-    size_t left = 0;
-    for(size_t c : chunked)
-    {
-        size_t sz = c - left;
-        memset(buf2,0,sizeof(buf2));
-        for(int i=0;left<c;i++)buf2[i] = (unsigned char) data[left++];
-        std::array<unsigned char,16> hash;
-        MD5(buf2,sz,&hash[0]);
-        int bnum;
-        if (sht.find(bnum, hash))
-        {
-            num_dup++;
-            size_dup += sz;
-        }
-        else sht.insert(hash, 1);
-    }
     printf("number of chunks:     %u\n", num_chunk);
     printf("number of dup chunks: %u\n", num_dup);
     printf("total memory if no dedup: %lluB\n", size_org);
