@@ -1,6 +1,6 @@
 CXX = g++
-CXXFLAGS = -O0 -g -std=gnu++14 -lcrypto -lz `pkg-config fuse --cflags --libs`
-CXXFLAGSNOFUSE = -O0 -g -std=gnu++14
+CXXFLAGS = -O2 -g -std=gnu++14 -lcrypto -lz `pkg-config fuse --cflags --libs`
+CXXFLAGSNOFUSE = -O2 -g -std=gnu++14
 
 all : silo_fuse
 
