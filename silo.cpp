@@ -313,6 +313,8 @@ bool silofs::read(const char *file, vector<char> &ret)
 			ret.insert(ret.end(), blob.begin(), blob.end());
 		}
 
+		close(fd);
+
 		return true;
 	}
 }

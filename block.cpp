@@ -43,7 +43,7 @@ chunk block::getchunk(const md5val &hash)
 	int fd = open(name.c_str(), O_RDONLY);
 	if (fd == -1)
 	{
-		fprintf(stderr, "chunk %s not found\n", name.c_str());
+		fprintf(stderr, "chunk %s not found %d\n", name.c_str(), errno);
 		exit(1);
 	}
 
@@ -71,6 +71,8 @@ chunk block::getchunk(const md5val &hash)
 
 	ret.blob.resize(st.st_size - sizeof(header));
 	read(fd, &ret.blob[0], st.st_size - sizeof(header));
+
+	close(fd);
 
 	return ret;
 }
