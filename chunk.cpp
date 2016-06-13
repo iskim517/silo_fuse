@@ -4,25 +4,28 @@
 #include <limits>
 #include <openssl/md5.h>
 #include "chunk.h"
+#include "lib/libsilo.h"
 using namespace std;
 using namespace silo;
 
 chunk chunk::frombuffer(const void *buf, size_t len)
 {
 	chunk ret;
-
-	if (len > 1024 * 1024)
+	if (len > CHUNK_SZ)
 	{
-		fprintf(stderr, "chunk::frombuffer too large\n");
+		fprintf(stderr, "chunk size %jd is larger than %d\n", len, CHUNK_SZ);
 		exit(1);
 	}
+	vector<unsigned char> padded(CHUNK_SZ);
+	memcpy(&padded[0], buf, len);
 
-	ret.rawsize = len;
-	MD5(static_cast<const unsigned char *>(buf), len, &ret.hash[0]);
+	len = CHUNK_SZ;
+
+	MD5(&padded[0], len, &ret.hash[0]);
 
 	uLongf destLen = compressBound(len);
 	ret.blob.resize(destLen);
-	if (compress(reinterpret_cast<Bytef *>(&ret.blob[0]), &destLen, static_cast<const Bytef *>(buf), len)
+	if (compress(reinterpret_cast<Bytef *>(&ret.blob[0]), &destLen, &padded[0], len)
 		!= Z_OK)
 	{
 		fprintf(stderr, "out of memory\n");
@@ -48,6 +51,7 @@ vector<char> chunk::unzip() const
 {
 	if (type == comptype::raw) return blob;
 
+	size_t rawsize = CHUNK_SZ;
 	vector<char> ret(rawsize);
 
 	uLongf destLen = rawsize;

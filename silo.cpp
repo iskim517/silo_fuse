@@ -29,8 +29,7 @@ void segment_buffer::deserialize(const char *file)
 		chunk chk;
 		chk.type = header.type;
 		chk.hash = hash;
-		chk.rawsize = header.rawsize;
-		size += chk.rawsize;
+		size += CHUNK_SZ;
 
 		uint32_t blobsize;
 		if (read(fd, &blobsize, sizeof(blobsize)) != sizeof(blobsize)) break;
@@ -60,7 +59,6 @@ void segment_buffer::serialize(const char *file)
 		chunk_file_header header;
 		header.refcount = refcount;
 		header.type = chk.type;
-		header.rawsize = chk.rawsize;
 
 		write(fd, &hash[0], hash.size());
 		write(fd, &header, sizeof(header));
@@ -106,7 +104,6 @@ void block_buffer::deserialize(const char *file)
 		chunk chk;
 		chk.type = header.type;
 		chk.hash = hash;
-		chk.rawsize = header.rawsize;
 
 		uint32_t blobsize;
 		if (read(fd, &blobsize, sizeof(blobsize)) != sizeof(blobsize)) break;
@@ -144,7 +141,6 @@ void block_buffer::serialize(const char *file)
 		chunk_file_header header;
 		header.refcount = refcount;
 		header.type = chk.type;
-		header.rawsize = chk.rawsize;
 
 		write(fd, &hash[0], hash.size());
 		write(fd, &header, sizeof(header));
@@ -210,12 +206,7 @@ silofs::silofs(const char *basedir) : base(basedir)
 			exit(1);
 		}
 
-		uint32_t chkcnt;
-		if (::read(pfd, &chkcnt, sizeof(chkcnt)) != sizeof(chkcnt))
-		{
-			fprintf(stderr, "pending file error\n");
-			exit(1);
-		}
+		uint32_t chkcnt = getchunkcount(pending.header.size);
 
 		while (chkcnt--)
 		{
@@ -257,9 +248,6 @@ silofs::~silofs()
 			::write(pfd, &pending.left, sizeof(pending.left)) != sizeof(pending.left))
 			break;
 
-		uint32_t chkcnt = pending.chunks.size();
-		if (::write(pfd, &chkcnt, sizeof(chkcnt)) != sizeof(chkcnt)) break;
-
 		for (auto &&info : pending.chunks)
 		{
 			if (::write(pfd, &info, sizeof(info)) != sizeof(info)) break;
@@ -282,6 +270,8 @@ bool silofs::read(const char *file, vector<char> &ret)
 			ret.insert(ret.end(), blob.begin(), blob.end());
 		}
 
+		ret.resize(pit->second.header.size);
+
 		return true;
 	}
 	else
@@ -300,7 +290,7 @@ bool silofs::read(const char *file, vector<char> &ret)
 			exit(1);
 		}
 
-		for (off_t i = 0, e = header.chunks; i < e; i++)
+		for (off_t i = 0, e = getchunkcount(header.size); i < e; i++)
 		{
 			chunk_info info;
 			if (::read(fd, &info, sizeof(info)) != sizeof(info))
@@ -314,6 +304,8 @@ bool silofs::read(const char *file, vector<char> &ret)
 		}
 
 		close(fd);
+
+		ret.resize(header.size);
 
 		return true;
 	}
@@ -355,25 +347,19 @@ void silofs::write(const char *file, const void *dat, size_t size, file_header h
 
 	fprintf(stderr, "trying to write %s of size %jd\n", file, size);
 
-	vector<size_t> chunked;
-	do_chunking(dat, size, chunked);
-
-	fprintf(stderr, "chunk completed with number %jd\n", chunked.size());
-
 	pending_file &pending = pendings[file];
 
 	header.size = size;
-	header.chunks = chunked.size();
 
 	pending.header = header;
-	pending.chunks.resize(chunked.size(), {chunk_info::pending, {}});
-	pending.left = chunked.size();
+	pending.chunks.resize(getchunkcount(size), {chunk_info::pending, {}});
+	pending.left = getchunkcount(size);
 
 	size_t last = 0;
 	const char *dat_begin = static_cast<const char *>(dat);
-	for (size_t i = 0; i < chunked.size(); i++)
+	for (size_t i = 0; i < pending.chunks.size(); i++)
 	{
-		size_t next = chunked[i];
+		size_t next = min(size, last + CHUNK_SZ);
 		auto chk = chunk::frombuffer(dat_begin + last, next - last);
 		last = next;
 
@@ -387,7 +373,7 @@ void silofs::write(const char *file, const void *dat, size_t size, file_header h
 			continue;
 		}
 
-		segbuf.size += chk.rawsize;
+		segbuf.size += CHUNK_SZ;
 		if (segbuf.size < SEGMENT_SIZE) continue;
 
 		md5val repid = segbuf.chunks.begin()->first;
@@ -486,7 +472,7 @@ bool silofs::remove(const char *file)
 			exit(1);
 		}
 
-		for (off_t i = 0, e = header.chunks; i < e; i++)
+		for (off_t i = 0, e = getchunkcount(header.size); i < e; i++)
 		{
 			chunk_info info;
 			if (::read(fd, &info, sizeof(info)) != sizeof(info))

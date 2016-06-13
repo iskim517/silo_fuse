@@ -7,6 +7,7 @@
 #include <set>
 #include <sys/stat.h>
 #include "lib/shtable.h"
+#include "lib/libsilo.h"
 #include "block.h"
 #include "chunk.h"
 
@@ -35,7 +36,6 @@ namespace silo
 	{
 		time_t atime, mtime, ctime;
 		off_t size;
-		off_t chunks;
 	} __attribute((packed));
 
 	struct pending_file
@@ -111,4 +111,9 @@ namespace silo
 			}
 		}
 	};
+
+	inline size_t getchunkcount(size_t size)
+	{
+		return (size + CHUNK_SZ - 1) / CHUNK_SZ;
+	}
 }

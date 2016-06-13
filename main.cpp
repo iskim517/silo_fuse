@@ -73,7 +73,6 @@ static int silo_getattr(const char *path, struct stat *stbuf)
 			stbuf->st_atime = header.atime;
 			stbuf->st_mtime = header.mtime;
 			stbuf->st_ctime = header.ctime;
-			fprintf(stderr, "getattr size %s %jd\n", path, header.size);
 			stbuf->st_size = header.size;
 		}
 		else
@@ -104,13 +103,11 @@ static int silo_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	DIR *d = opendir(volpath.c_str());
 	struct dirent *dir;
 
-	fprintf(stderr, "readdir %s\n", path);
 
 	while ((dir = readdir(d)) != nullptr)
 	{
 		if (files.find(dir->d_name) == files.end())
 		{
-			fprintf(stderr, "%s adding\n", dir->d_name);
 			filler(buf, dir->d_name, nullptr, 0);
 		}
 	}
@@ -122,7 +119,6 @@ static int silo_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		if (strncmp(name.c_str(), search.c_str(), search.size()) == 0 && files.find(name) == files.end())
 		{
 			if (strchr(name.c_str() + search.size(), '/')) return true;
-			fprintf(stderr, "%s - %s adding\n", name.c_str(), name.c_str() + search.size());
 			filler(buf, name.c_str() + search.size(), nullptr, 0);
 		}
 		return true;
@@ -135,12 +131,9 @@ static int silo_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		if (strncmp(elem.first.c_str(), search.c_str(), search.size()) == 0)
 		{
 			if (strchr(elem.first.c_str() + search.size(), '/')) continue;
-			fprintf(stderr, "%s - %s adding\n", elem.first.c_str(), elem.first.c_str() + search.size());
 			filler(buf, elem.first.c_str() + search.size(), NULL, 0);
 		}
 	}
-
-	fprintf(stderr, "done\n");
 
 	return 0;
 }

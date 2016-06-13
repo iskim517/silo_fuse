@@ -67,7 +67,6 @@ chunk block::getchunk(const md5val &hash)
 
 	ret.type = header.type;
 	ret.hash = hash;
-	ret.rawsize = header.rawsize;
 
 	ret.blob.resize(st.st_size - sizeof(header));
 	read(fd, &ret.blob[0], st.st_size - sizeof(header));
@@ -99,7 +98,7 @@ void block::addchunk(const chunk &chk, uint64_t initref)
 	fstat(fd, &st);
 	if (st.st_size == 0)
 	{
-		chunk_file_header header{initref, chk.type, chk.rawsize};
+		chunk_file_header header{initref, chk.type};
 		write(fd, &header, sizeof(header));
 		write(fd, &chk.blob[0], chk.blob.size());
 	}
