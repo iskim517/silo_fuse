@@ -464,7 +464,7 @@ int main(int argc, char *argv[])
 	silo_oper.mkdir = silo_mkdir;
 	silo_oper.rmdir = silo_rmdir;
 
-	freopen("errorlog", "w", stderr);
+//	freopen("errorlog", "w", stderr);
 
 	return fuse_main(argc, argv, &silo_oper, NULL);
 }
