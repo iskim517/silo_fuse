@@ -11,14 +11,17 @@
 #include "shtable.h"
 #include "libsilo.h"
 #include <errno.h>
+#include <fstream>
+#include <istream>
+#include <iterator>
+using namespace std;
 
 char buf[65536];
-unsigned char buf2[65536];
 shtable sht;
 unsigned int num_chunk, num_dup;
 unsigned long long size_dup, size_org;
 
-void dedup(std::string d)
+void dedup(const std::string &d)
 {
     std::vector<size_t> chunked;
     do_chunking(d.c_str(), d.size(), chunked);
@@ -28,10 +31,9 @@ void dedup(std::string d)
     for(size_t c : chunked)
     {
         size_t sz = c - left;
-        memset(buf2,0,sizeof(buf2));
-        for(int i=0;left<c;i++)buf2[i] = (unsigned char) d[left++];
         std::array<unsigned char,16> hash;
-        MD5(buf2,sz,&hash[0]);
+        MD5((unsigned char*)(d.c_str()+left),sz,&hash[0]);
+		left=c;
         int bnum;
         if (sht.find(bnum, hash))
         {
@@ -59,19 +61,14 @@ void createdata(DIR* d, std::string addr)
         }
         else if( S_ISREG(st.st_mode))
         {
-            FILE *f = fopen(buf,"r");
-            if (f == nullptr)
+			ifstream in(buf);
+            if (in.is_open() == false)
             {
-                printf("%s fail %d\n", buf, errno);
+                printf("%s fail\n", buf);
                 exit(1);
             }
-            std::string tmp = "";
-            while(fread(buf,sizeof(char),sizeof(buf),f))
-            {
-                tmp += std::string(buf);
-            }
+            std::string tmp{istream_iterator<char>{in}, istream_iterator<char>{}};
             dedup(tmp);
-            fclose(f);
         }
     }
 }
