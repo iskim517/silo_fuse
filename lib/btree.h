@@ -15,11 +15,17 @@ private:
         int val;
         bool operator <(const keyval & other) const
         {
-            return key < other.key;
+            if ((const uint64_t &)key[0] != (const uint64_t &)other.key[0])
+                return (const uint64_t &)key[0] < (const uint64_t &)other.key[0];
+
+            return (const uint64_t &)key[8] < (const uint64_t &)other.key[8];
         }
         bool operator <(const std::array<unsigned char,16> & other) const
         {
-            return key < other;
+            if ((const uint64_t &)key[0] != (const uint64_t &)other[0])
+                return (const uint64_t &)key[0] < (const uint64_t &)other[0];
+
+            return (const uint64_t &)key[8] < (const uint64_t &)other[8];
         }
     } kv;
     std::vector<kv> node;

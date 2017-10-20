@@ -1,26 +1,27 @@
 #include "btree.h"
+using namespace std;
 
 void btree::split(btree* &right, kv& center)
 {
     int cidx = BTREE_MAX_SZ >> 1;
     center = node[cidx];
-    std::vector<kv> rn(node.begin() + cidx + 1, node.end());
+    vector<kv> rn(node.begin() + cidx + 1, node.end());
     if (leaf)
     {
-        right = new btree(rn);
+        right = new btree(move(rn));
     }
     else
     {
-        std::vector<btree*> rc(child.begin() + cidx + 1, child.end());
-        right = new btree(rn, rc);
+        vector<btree*> rc(child.begin() + cidx + 1, child.end());
+        right = new btree(move(rn), move(rc));
         child.resize(child.size()-rc.size());
     }
     node.resize(node.size()-rn.size()-1);
     return;
 }
-bool btree::insert_rec(std::array<unsigned char,16> key, int val)
+bool btree::insert_rec(array<unsigned char,16> key, int val)
 {
-    auto it = std::lower_bound(node.begin(), node.end(), key);
+    auto it = lower_bound(node.begin(), node.end(), key);
     if (it != node.end() && it->key == key) return false;
     if (leaf)
     {
@@ -32,7 +33,7 @@ bool btree::insert_rec(std::array<unsigned char,16> key, int val)
     }
     else
     {
-        size_t d = std::distance(node.begin(), it);
+        size_t d = distance(node.begin(), it);
         while (child.size() <= d)
         {
             btree *ntree;
@@ -92,7 +93,7 @@ bool btree::deserialize(FILE* &f)
     fread(buf, sizeof(char), cnt * 20, f);
     while(cnt--)
     {
-        std::array<unsigned char,16> key;
+        array<unsigned char,16> key;
         int val = 0;
         for(int i=0;i<16;i++) key[i] = buf[p++];
         for(int i=0;i<4;i++)
@@ -128,23 +129,22 @@ btree::btree()
     leaf = true;
 }
 
-btree::btree(std::vector<kv> init_node)
+btree::btree(vector<kv> init_node)
 {
     leaf = true;
-    node = init_node;
+    node = move(init_node);
 }
 
-btree::btree(std::vector<kv> init_node, std::vector<btree*> init_child)
+btree::btree(vector<kv> init_node, vector<btree*> init_child)
 {
     leaf = false;
-    node = init_node;
-    child = init_child;
+    node = move(init_node);
+    child = move(init_child);
 }
 
 btree::~btree()
 {
-    node.clear();
-    child.clear();
+    for (auto &ch : child) delete ch;
 }
 
 size_t btree::size()
@@ -152,7 +152,7 @@ size_t btree::size()
     return node.size();
 }
 
-bool btree::insert(std::array<unsigned char,16> key, int val)
+bool btree::insert(array<unsigned char,16> key, int val)
 {
     if (node.empty())
     {
@@ -162,7 +162,7 @@ bool btree::insert(std::array<unsigned char,16> key, int val)
         node.push_back(tmp);
         return true;
     }
-    auto it = std::lower_bound(node.begin(), node.end(), key);
+    auto it = lower_bound(node.begin(), node.end(), key);
     if (it != node.end() && it->key == key) return false;
     if (leaf)
     {
@@ -177,10 +177,10 @@ bool btree::insert(std::array<unsigned char,16> key, int val)
             btree* l, *r;
             int cidx = BTREE_MAX_SZ >> 1;
             kv center = node[cidx];
-            std::vector<kv> ln(node.begin(), node.begin() + cidx);
-            std::vector<kv> rn(node.begin() + cidx + 1, node.end());
-            l = new btree(ln);
-            r = new btree(rn);
+            vector<kv> ln(node.begin(), node.begin() + cidx);
+            vector<kv> rn(node.begin() + cidx + 1, node.end());
+            l = new btree(move(ln));
+            r = new btree(move(rn));
             node.clear();
             node.push_back(center);
             child.push_back(l);
@@ -196,20 +196,20 @@ bool btree::insert(std::array<unsigned char,16> key, int val)
             btree* l, *r;
             int cidx = BTREE_MAX_SZ >> 1;
             kv center = node[cidx];
-            std::vector<kv> ln(node.begin(), node.begin() + cidx);
-            std::vector<btree*> lc(child.begin(), child.begin() + cidx + 1);
-            std::vector<kv> rn(node.begin() + cidx + 1, node.end());
-            std::vector<btree*> rc(child.begin() + cidx + 1, child.end());
-            l = new btree(ln, lc);
-            r = new btree(rn, rc);
+            vector<kv> ln(node.begin(), node.begin() + cidx);
+            vector<btree*> lc(child.begin(), child.begin() + cidx + 1);
+            vector<kv> rn(node.begin() + cidx + 1, node.end());
+            vector<btree*> rc(child.begin() + cidx + 1, child.end());
+            l = new btree(move(ln), move(lc));
+            r = new btree(move(rn), move(rc));
             node.clear();
             node.push_back(center);
             child.clear();
             child.push_back(l);
             child.push_back(r);
         }
-        it = std::lower_bound(node.begin(), node.end(), key);
-        size_t d = std::distance(node.begin(), it);
+        it = lower_bound(node.begin(), node.end(), key);
+        size_t d = distance(node.begin(), it);
         if (child[d]->size() >= BTREE_MAX_SZ)
         {
             btree *r;
@@ -224,12 +224,12 @@ bool btree::insert(std::array<unsigned char,16> key, int val)
     }
 }
 
-int btree::find(std::array<unsigned char,16> key)
+int btree::find(array<unsigned char,16> key)
 {
-    auto it = std::lower_bound(node.begin(), node.end(), key);
+    auto it = lower_bound(node.begin(), node.end(), key);
     if (it != node.end() && it->key == key) return it->val;
     if (leaf) return 0;
-    int d = std::distance(node.begin(), it);
+    int d = distance(node.begin(), it);
     return child[d]->find(key);
 }
 
@@ -238,10 +238,10 @@ bool btree::save(const char* dir)
     FILE *f = fopen(dir,"w");
     bool ret = false;
     if(f!=NULL)
-	{
-		ret = serialize(f);
-	    fclose(f);
-	}
+    {
+        ret = serialize(f);
+        fclose(f);
+    }
     return ret;
 }
 
@@ -250,9 +250,9 @@ bool btree::load(const char* dir)
     FILE *f = fopen(dir,"r");
     bool ret = false;
     if(f!=NULL) 
-	{
-		ret = deserialize(f);
-	    fclose(f);
-	}
+    {
+        ret = deserialize(f);
+        fclose(f);
+    }
     return ret;
 }
