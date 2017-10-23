@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include "silo.h"
+#include "lib/debug.h"
 
 using namespace std;
 using namespace silo;
@@ -80,6 +81,7 @@ chunk block::getchunk(const md5val &hash)
 
     chunk ret{ chk.type, chk.hash, chk.rawsize, vector<char>(chk.compsize) };
     read(fd, &ret.blob[0], chk.compsize);
+    close(fd);
 
     return ret;
 }
@@ -88,11 +90,11 @@ void block::addchunk(const chunk &chk, uint64_t initref)
 {
     string name = basedir + to_postfix(chk.hash);
 
-    int fd = open(name.c_str(), O_RDONLY);
+    int fd = open(name.c_str(), O_RDWR);
     if (fd == -1)
     {
-        fprintf(stderr, "chunk %s not found %d\n", name.c_str(), errno);
-        exit(1);
+        create_with_chunks({{chk.hash, {initref, move(chk)}}});
+        return;
     }
 
     lseek(fd, 2, SEEK_SET);
@@ -107,6 +109,7 @@ void block::addchunk(const chunk &chk, uint64_t initref)
         header.type = chk.type;
         write(fd, &header, sizeof(header));
         write(fd, &chk.blob[0], chk.blob.size());
+        close(fd);
 
         return;
     }
@@ -140,6 +143,12 @@ void block::create_with_chunks(const map<md5val, pair<uint64_t, chunk>> &chks)
             if (fd != -1) close(fd);
             last = chk.first[0] << 1 | (chk.first[1] >> 7);
             fd = open((basedir + to_postfix(chk.first)).c_str(), O_WRONLY | O_TRUNC | O_CREAT, 0755);
+            if (fd == -1)
+            {
+                fprintf(stderr, "block file %s open failed with errno %d\n",
+                    (basedir + to_postfix(chk.first)).c_str(), errno);
+                exit(1);
+            }
             write(fd, &(const int &)0, 2);
         }
 
@@ -162,7 +171,7 @@ void block::releasechunk(const md5val &hash)
 {
     string name = basedir + to_postfix(hash);
 
-    int fd = open(name.c_str(), O_RDONLY);
+    int fd = open(name.c_str(), O_RDWR);
     if (fd == -1) return;
 
     uint16_t deleted;
@@ -183,12 +192,14 @@ void block::releasechunk(const md5val &hash)
         if (deleted == 128)
         {
             defragment(fd, name);
+            close(fd);
             return;
         }
 
         lseek(fd, 0, SEEK_SET);
         write(fd, &deleted, 2);
     }
+    close(fd);
 }
 
 void block::defragment(int fd, const string &name)
@@ -226,5 +237,4 @@ void block::defragment(int fd, const string &name)
     }
 
     ftruncate(fd, last);
-    close(fd);
 }
