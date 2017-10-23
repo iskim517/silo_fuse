@@ -4,7 +4,7 @@ CXXFLAGS_FUSE = $(CXXFLAGS) -lcrypto -lz `pkg-config fuse --cflags --libs`
 
 all : silo_fuse
 
-silo_fuse : main.o lib/btree.o lib/libsilo.o chunk.o block.o silo.o lib/shtable.o
+silo_fuse : main.o lib/btree.o lib/libsilo.o chunk.o block.o silo.o lib/shtable.o lib/debug.o
 	$(CXX) -o $@ $^ $(CXXFLAGS_FUSE)
 
 main.o : main.cpp
@@ -32,6 +32,9 @@ lib/libsilo.o : lib/libsilo.cpp lib/libsilo.h
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
 lib/shtable.o: lib/shtable.cpp lib/shtable.h lib/btree.o
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+lib/debug.o: lib/debug.cpp lib/debug.h
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
 dup : lib/duptest.o lib/shtable.o lib/btree.o lib/libsilo.o
