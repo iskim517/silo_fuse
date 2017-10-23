@@ -53,7 +53,7 @@ bool block::find_chunk(int fd, const md5val &hash, chunk_file_header &ret)
     {
         if (safe_read(fd, &ret, sizeof(ret)) == false) return false;
         if (ret.hash == hash) return true;
-        lseek(fd, ret.rawsize, SEEK_CUR);
+        lseek(fd, ret.compsize, SEEK_CUR);
     }
 
     return false;
