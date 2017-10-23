@@ -51,7 +51,7 @@ bool block::find_chunk(int fd, const md5val &hash, chunk_file_header &ret)
 {
     for (;;)
     {
-        if (read(fd, &ret, sizeof(ret)) < sizeof(ret)) return false;
+        if (safe_read(fd, &ret, sizeof(ret)) == false) return false;
         if (ret.hash == hash) return true;
         lseek(fd, ret.rawsize, SEEK_CUR);
     }
@@ -80,7 +80,7 @@ chunk block::getchunk(const md5val &hash)
     }
 
     chunk ret{ chk.type, chk.hash, chk.rawsize, vector<char>(chk.compsize) };
-    read(fd, &ret.blob[0], chk.compsize);
+    safe_read(fd, &ret.blob[0], chk.compsize, true);
     close(fd);
 
     return ret;
@@ -107,8 +107,8 @@ void block::addchunk(const chunk &chk, uint64_t initref)
         header.rawsize = chk.rawsize;
         header.hash = chk.hash;
         header.type = chk.type;
-        write(fd, &header, sizeof(header));
-        write(fd, &chk.blob[0], chk.blob.size());
+        safe_write(fd, &header, sizeof(header));
+        safe_write(fd, &chk.blob[0], chk.blob.size());
         close(fd);
 
         return;
@@ -116,16 +116,16 @@ void block::addchunk(const chunk &chk, uint64_t initref)
 
     header.refcount += initref;
     lseek(fd, -(off_t)sizeof(header), SEEK_CUR);
-    write(fd, &chk, sizeof(header));
+    safe_write(fd, &chk, sizeof(header));
 
     if (header.refcount == initref)
     {
         lseek(fd, 0, SEEK_SET);
         uint16_t deleted;
-        read(fd, &deleted, 2);
+        safe_read(fd, &deleted, 2, true);
         --deleted;
         lseek(fd, 0, SEEK_SET);
-        write(fd, &deleted, 2);
+        safe_write(fd, &deleted, 2);
     }
 
     close(fd);
@@ -149,7 +149,7 @@ void block::create_with_chunks(const map<md5val, pair<uint64_t, chunk>> &chks)
                     (basedir + to_postfix(chk.first)).c_str(), errno);
                 exit(1);
             }
-            write(fd, &(const int &)0, 2);
+            safe_write(fd, &(const int &)0, 2);
         }
 
         chunk_file_header header{
@@ -160,8 +160,8 @@ void block::create_with_chunks(const map<md5val, pair<uint64_t, chunk>> &chks)
             chk.second.second.type
         };
 
-        write(fd, &header, sizeof(header));
-        write(fd, &chk.second.second.blob[0], chk.second.second.blob.size());
+        safe_write(fd, &header, sizeof(header));
+        safe_write(fd, &chk.second.second.blob[0], chk.second.second.blob.size());
     }
 
     if (fd != -1) close(fd);
@@ -175,7 +175,7 @@ void block::releasechunk(const md5val &hash)
     if (fd == -1) return;
 
     uint16_t deleted;
-    read(fd, &deleted, 2);
+    safe_read(fd, &deleted, 2, true);
 
     chunk_file_header header;
     if (find_chunk(fd, hash, header) == false) return;
@@ -183,7 +183,7 @@ void block::releasechunk(const md5val &hash)
 
     --header.refcount;
     lseek(fd, -(off_t)sizeof(header), SEEK_CUR);
-    write(fd, &header, sizeof(header));
+    safe_write(fd, &header, sizeof(header));
 
     if (header.refcount == 0)
     {
@@ -197,7 +197,7 @@ void block::releasechunk(const md5val &hash)
         }
 
         lseek(fd, 0, SEEK_SET);
-        write(fd, &deleted, 2);
+        safe_write(fd, &deleted, 2);
     }
     close(fd);
 }
@@ -205,7 +205,7 @@ void block::releasechunk(const md5val &hash)
 void block::defragment(int fd, const string &name)
 {
     lseek(fd, 0, SEEK_SET);
-    write(fd, &(const int &)0, 2);
+    safe_write(fd, &(const int &)0, 2);
 
     off_t last = 2;
     bool passed = false;
@@ -213,7 +213,7 @@ void block::defragment(int fd, const string &name)
     for (;;)
     {
         chunk_file_header header;
-        if (read(fd, &header, sizeof(header)) < sizeof(header)) break;
+        if (safe_read(fd, &header, sizeof(header)) == false) break;
 
         if (header.refcount == 0)
         {
@@ -225,11 +225,11 @@ void block::defragment(int fd, const string &name)
         if (passed)
         {
             char buf[header.compsize];
-            read(fd, buf, header.compsize);
+            safe_read(fd, buf, header.compsize, true);
             off_t old = lseek(fd, 0, SEEK_CUR);
             lseek(fd, last, SEEK_SET);
-            write(fd, &header, sizeof(header));
-            write(fd, buf, header.compsize);
+            safe_write(fd, &header, sizeof(header));
+            safe_write(fd, buf, header.compsize);
             lseek(fd, old, SEEK_SET);
         }
 
