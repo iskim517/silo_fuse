@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "lib/libsilo.h"
+#include "lib/debug.h"
 #include "silo.h"
 using namespace std;
 using namespace silo;
@@ -62,12 +63,12 @@ void segment_buffer::serialize(const char *file)
         header.type = chk.type;
         header.rawsize = chk.rawsize;
 
-        write(fd, &hash[0], hash.size());
-        write(fd, &header, sizeof(header));
+        safe_write(fd, &hash[0], hash.size());
+        safe_write(fd, &header, sizeof(header));
 
         auto blobsize = static_cast<uint32_t>(chk.blob.size());
-        write(fd, &blobsize, sizeof(blobsize));
-        write(fd, &chk.blob[0], blobsize);
+        safe_write(fd, &blobsize, sizeof(blobsize));
+        safe_write(fd, &chk.blob[0], blobsize);
     }
 
     close(fd);
@@ -128,11 +129,11 @@ void block_buffer::serialize(const char *file)
     if (fd == -1) return;
 
     uint32_t segcount = segments.size();
-    write(fd, &segcount, sizeof(segcount));
+    safe_write(fd, &segcount, sizeof(segcount));
 
     for (auto &&hash : segments)
     {
-        write(fd, &hash[0], hash.size());
+        safe_write(fd, &hash[0], hash.size());
     }
 
     for (auto &&elem : chunks)
@@ -146,12 +147,12 @@ void block_buffer::serialize(const char *file)
         header.type = chk.type;
         header.rawsize = chk.rawsize;
 
-        write(fd, &hash[0], hash.size());
-        write(fd, &header, sizeof(header));
+        safe_write(fd, &hash[0], hash.size());
+        safe_write(fd, &header, sizeof(header));
 
         auto blobsize = static_cast<uint32_t>(chk.blob.size());
-        write(fd, &blobsize, sizeof(blobsize));
-        write(fd, &chk.blob[0], blobsize);
+        safe_write(fd, &blobsize, sizeof(blobsize));
+        safe_write(fd, &chk.blob[0], blobsize);
     }
 
     close(fd);
@@ -248,21 +249,20 @@ silofs::~silofs()
         auto &&name = elem.first;
         auto &&pending = elem.second;
         uint32_t namelen = name.size();
-        if (::write(pfd, &namelen, sizeof(namelen)) != sizeof(namelen)) break;
-        if (::write(pfd, &name[0], namelen) != namelen) break;
+        safe_write(pfd, &namelen, sizeof(namelen));
+        safe_write(pfd, &name[0], namelen);
 
-        if (::write(pfd, &pending.header, sizeof(pending.header)) != sizeof(pending.header) ||
-            ::write(pfd, &pending.lastseg, sizeof(pending.lastseg)) != sizeof(pending.lastseg) ||
-            ::write(pfd, &pending.lastblk, sizeof(pending.lastblk)) != sizeof(pending.lastblk) ||
-            ::write(pfd, &pending.left, sizeof(pending.left)) != sizeof(pending.left))
-            break;
+        safe_write(pfd, &pending.header, sizeof(pending.header));
+        safe_write(pfd, &pending.lastseg, sizeof(pending.lastseg));
+        safe_write(pfd, &pending.lastblk, sizeof(pending.lastblk));
+        safe_write(pfd, &pending.left, sizeof(pending.left));
 
         uint32_t chkcnt = pending.chunks.size();
-        if (::write(pfd, &chkcnt, sizeof(chkcnt)) != sizeof(chkcnt)) break;
+        safe_write(pfd, &chkcnt, sizeof(chkcnt));
 
         for (auto &&info : pending.chunks)
         {
-            if (::write(pfd, &info, sizeof(info)) != sizeof(info)) break;
+            safe_write(pfd, &info, sizeof(info));
         }
     }
 
@@ -446,11 +446,7 @@ void silofs::writeheader(const char *file, file_header header)
         newheader.ctime = header.ctime;
 
         lseek(fd, 0, SEEK_SET);
-        if (::write(fd, &newheader, sizeof(newheader)) != sizeof(newheader))
-        {
-            fprintf(stderr, "%s write error\n", file);
-            exit(1);
-        }
+		safe_write(fd, &newheader, sizeof(newheader));
 
         close(fd);
     }
@@ -673,11 +669,11 @@ void silofs::flushpending()
 
             fprintf(stderr, "flush header size %jd\n", pending.header.size);
 
-            ::write(fd, &pending.header, sizeof(pending.header));
+            safe_write(fd, &pending.header, sizeof(pending.header));
 
             for (auto &&info : pending.chunks)
             {
-                ::write(fd, &info, sizeof(info));
+                safe_write(fd, &info, sizeof(info));
             }
 
             close(fd);
