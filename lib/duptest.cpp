@@ -33,7 +33,7 @@ void dedup(const std::string &d)
         size_t sz = c - left;
         std::array<unsigned char,16> hash;
         MD5((unsigned char*)(d.c_str()+left),sz,&hash[0]);
-		left=c;
+        left=c;
         int bnum;
         if (sht.find(bnum, hash))
         {
@@ -61,7 +61,7 @@ void createdata(DIR* d, std::string addr)
         }
         else if( S_ISREG(st.st_mode))
         {
-			ifstream in(buf);
+            ifstream in(buf);
             if (in.is_open() == false)
             {
                 printf("%s fail\n", buf);

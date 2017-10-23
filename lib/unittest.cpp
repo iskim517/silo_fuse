@@ -4,8 +4,10 @@
 #include<chrono>
 #include<array>
 #include<vector>
+#include<set>
 #include "btree.h"
 #include "libsilo.h"
+using namespace std;
 
 #define btree_test_sz 1000000
 
@@ -37,6 +39,23 @@ bool btree_insert()
     {
         ret &= btr.insert(key[i],val[i]);
         if(!ret)
+        {
+            printf("error on %d\n", i);
+            return false;
+        }
+    }
+    return ret;
+}
+
+bool set_insert()
+{
+    bool ret = true;
+    auto comp = [](auto &a, auto &b){return keyval_comp(a, b); };
+    set<std::array<unsigned char, 16>, decltype(comp)> st(comp);
+    for (int i = 0; i < btree_test_sz; i++)
+    {
+        ret &= st.insert(key[i]).second;
+        if (!ret)
         {
             printf("error on %d\n", i);
             return false;
@@ -99,6 +118,11 @@ void test_btree()
     yes = btree_insert();
     if(yes) printf("insert in %lld millisecond\n", now() - t);
     else puts("error on btree insert");
+    
+    t = now();
+    yes = set_insert();
+    if(yes) printf("set insert in %lld millisecond\n", now() - t);
+    else puts("error on set insert");
 
     t = now();
     yes = btree_find();
@@ -137,11 +161,11 @@ bool lib_chunk()
 
 bool lib_chunk_check()
 {
-	for (size_t i = 1; i < chunks.size(); i++)
-	{
-		if (chunks[i] <= chunks[i-1]) return false;
-	}
-	return chunks.back() == libfile.size();
+    for (size_t i = 1; i < chunks.size(); i++)
+    {
+        if (chunks[i] <= chunks[i-1]) return false;
+    }
+    return chunks.back() == libfile.size();
 }
 
 void lib_chunk_analysis()
@@ -150,14 +174,14 @@ void lib_chunk_analysis()
     printf("number of chunks : %lu\n", chunks.size());
     printf("average size of chunk : %lfB\n", (double) lib_file_test_sz / (double) chunks.size());
     unsigned int mx = 0, mn = 2147483647;
-	unsigned int last = 0;
+    unsigned int last = 0;
     for(int i=0;i<chunks.size() - 1;i++)
     {
-		unsigned int chunksize = chunks[i] - last;
+        unsigned int chunksize = chunks[i] - last;
         if(chunksize > mx) mx = chunksize;
         if(chunksize < mn) mn = chunksize;
 
-		last = chunks[i];
+        last = chunks[i];
     }
     if(chunks.back() - last > mx) mx = chunks.back() - last;
     printf("largest chunk : %uB\n", mx);

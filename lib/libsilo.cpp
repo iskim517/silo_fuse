@@ -6,7 +6,7 @@ bool do_chunking(const void *buf, std::size_t size, std::vector<std::size_t>& ou
     unsigned int window = 0;
     if(!out.empty()) return false;
     const char *it_l = static_cast<const char *>(buf), *it_r = it_l,
-				*it_end = it_l + size;
+                *it_end = it_l + size;
     while(it_r != it_end)
     {
         window = (window * 17) + (unsigned char) (*it_r);
