@@ -116,7 +116,7 @@ void block::addchunk(const chunk &chk, uint64_t initref)
 
     header.refcount += initref;
     lseek(fd, -(off_t)sizeof(header), SEEK_CUR);
-    safe_write(fd, &chk, sizeof(header));
+    safe_write(fd, &header, sizeof(header));
 
     if (header.refcount == initref)
     {
