@@ -155,6 +155,7 @@ void block::create_with_chunks(const map<md5val, pair<uint64_t, chunk>> &chks)
             {
                 lseek(fd, 0, SEEK_SET);
                 safe_write(fd, &cnt, sizeof(cnt));
+                cnt = 0;
                 close(fd);
             }
             last = chk.first[0] << 1 | (chk.first[1] >> 7);
