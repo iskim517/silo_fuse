@@ -25,7 +25,7 @@ namespace silo
     private:
         string basedir;
         bool find_chunk(int fd, const md5val &hash, chunk_file_header &ret);
-        void defragment(int fd, const string &name);
+        void defragment(int fd);
     public:
         explicit block(const char *dir);
         block(const block &) = delete;

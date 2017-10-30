@@ -70,7 +70,7 @@ chunk block::getchunk(const md5val &hash)
         exit(1);
     }
 
-    lseek(fd, 2, SEEK_SET);
+    lseek(fd, 4, SEEK_SET);
 
     chunk_file_header chk;
     if (find_chunk(fd, hash, chk) == false || chk.refcount == 0)
@@ -97,7 +97,7 @@ void block::addchunk(const chunk &chk, uint64_t initref)
         return;
     }
 
-    lseek(fd, 2, SEEK_SET);
+    lseek(fd, 4, SEEK_SET);
 
     chunk_file_header header;
     if (find_chunk(fd, chk.hash, header) == false)
@@ -109,6 +109,13 @@ void block::addchunk(const chunk &chk, uint64_t initref)
         header.type = chk.type;
         safe_write(fd, &header, sizeof(header));
         safe_write(fd, &chk.blob[0], chk.blob.size());
+
+        uint16_t total;
+        lseek(fd, 0, SEEK_SET);
+        read(fd, &total, sizeof(total));
+        ++total;
+        lseek(fd, 0, SEEK_SET);
+        write(fd, &total, sizeof(total));
         close(fd);
 
         return;
@@ -121,11 +128,14 @@ void block::addchunk(const chunk &chk, uint64_t initref)
     if (header.refcount == initref)
     {
         lseek(fd, 0, SEEK_SET);
-        uint16_t deleted;
-        safe_read(fd, &deleted, 2, true);
+        uint16_t total, deleted;
+        safe_read(fd, &total, sizeof(total));
+        safe_read(fd, &deleted, sizeof(deleted));
+        ++total;
         --deleted;
         lseek(fd, 0, SEEK_SET);
-        safe_write(fd, &deleted, 2);
+        safe_read(fd, &total, sizeof(total));
+        safe_write(fd, &deleted, sizeof(deleted));
     }
 
     close(fd);
@@ -134,13 +144,19 @@ void block::addchunk(const chunk &chk, uint64_t initref)
 void block::create_with_chunks(const map<md5val, pair<uint64_t, chunk>> &chks)
 {
     uint16_t last = 0;
+    uint16_t cnt = 0;
     int fd = -1;
 
     for (auto &chk : chks)
     {
         if (last != (chk.first[0] << 1 | (chk.first[1] >> 7)) || fd == -1)
         {
-            if (fd != -1) close(fd);
+            if (fd != -1)
+            {
+                lseek(fd, 0, SEEK_SET);
+                safe_write(fd, &cnt, sizeof(cnt));
+                close(fd);
+            }
             last = chk.first[0] << 1 | (chk.first[1] >> 7);
             fd = open((basedir + to_postfix(chk.first)).c_str(), O_WRONLY | O_TRUNC | O_CREAT, 0755);
             if (fd == -1)
@@ -149,6 +165,7 @@ void block::create_with_chunks(const map<md5val, pair<uint64_t, chunk>> &chks)
                     (basedir + to_postfix(chk.first)).c_str(), errno);
                 exit(1);
             }
+            lseek(fd, 2, SEEK_SET);
             safe_write(fd, &(const int &)0, 2);
         }
 
@@ -162,9 +179,15 @@ void block::create_with_chunks(const map<md5val, pair<uint64_t, chunk>> &chks)
 
         safe_write(fd, &header, sizeof(header));
         safe_write(fd, &chk.second.second.blob[0], chk.second.second.blob.size());
+        ++cnt;
     }
 
-    if (fd != -1) close(fd);
+    if (fd != -1)
+    {
+        lseek(fd, 0, SEEK_SET);
+        safe_write(fd, &cnt, sizeof(cnt));
+        close(fd);
+    }
 }
 
 void block::releasechunk(const md5val &hash)
@@ -174,8 +197,10 @@ void block::releasechunk(const md5val &hash)
     int fd = open(name.c_str(), O_RDWR);
     if (fd == -1) return;
 
+    uint16_t total;
+    safe_read(fd, &total, sizeof(total), true);
     uint16_t deleted;
-    safe_read(fd, &deleted, 2, true);
+    safe_read(fd, &deleted, sizeof(deleted), true);
 
     chunk_file_header header;
     if (find_chunk(fd, hash, header) == false) return;
@@ -187,28 +212,32 @@ void block::releasechunk(const md5val &hash)
 
     if (header.refcount == 0)
     {
-        ++deleted;
-
-        if (deleted == 128)
+        if (--total == 0)
         {
-            defragment(fd, name);
+            unlink(name.c_str());
+            close(fd);
+            return;
+        }
+
+        if (++deleted == 128)
+        {
+            defragment(fd);
             close(fd);
             return;
         }
 
         lseek(fd, 0, SEEK_SET);
-        safe_write(fd, &deleted, 2);
+        safe_write(fd, &total, sizeof(total));
+        safe_write(fd, &deleted, sizeof(deleted));
     }
     close(fd);
 }
 
-void block::defragment(int fd, const string &name)
+void block::defragment(int fd)
 {
-    lseek(fd, 0, SEEK_SET);
-    safe_write(fd, &(const int &)0, 2);
-
-    off_t last = 2;
+    off_t last = lseek(fd, 4, SEEK_SET);
     bool passed = false;
+    uint16_t total = 0;
 
     for (;;)
     {
@@ -221,6 +250,8 @@ void block::defragment(int fd, const string &name)
             lseek(fd, header.compsize, SEEK_CUR);
             continue;
         }
+
+        ++total;
 
         if (passed)
         {
@@ -235,6 +266,10 @@ void block::defragment(int fd, const string &name)
 
         last += sizeof(header) + header.compsize;
     }
+
+    lseek(fd, 0, SEEK_SET);
+    safe_write(fd, &total, 2);
+    safe_write(fd, &(const int &)0, 2);
 
     ftruncate(fd, last);
 }
