@@ -7,16 +7,22 @@ all : silo_fuse
 silo_fuse : main.o lib/btree.o lib/libsilo.o chunk.o block.o silo.o lib/shtable.o lib/debug.o
 	$(CXX) -o $@ $^ $(CXXFLAGS_FUSE)
 
+unittest : unittest.o lib/btree.o lib/libsilo.o chunk.o block.o silo.o lib/shtable.o lib/debug.o
+	$(CXX) -o $@ $^ $(CXXFLAGS_FUSE)
+
+unittest.o : unittest.cpp
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
 main.o : main.cpp
 	$(CXX) -c -o $@ $< $(CXXFLAGS_FUSE)
 
-chunk.o : chunk.cpp
+chunk.o : chunk.cpp chunk.h
 	$(CXX) -c -o $@ $< $(CXXFLAGS_FUSE)
 
-block.o : block.cpp
+block.o : block.cpp block.h
 	$(CXX) -c -o $@ $< $(CXXFLAGS_FUSE)
 
-silo.o : silo.cpp
+silo.o : silo.cpp silo.h
 	$(CXX) -c -o $@ $< $(CXXFLAGS_FUSE)
 
 test : lib/unittest.o lib/btree.o lib/libsilo.o
