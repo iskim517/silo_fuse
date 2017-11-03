@@ -19,7 +19,7 @@ namespace silo
     using std::uint32_t;
     using std::pair;
 
-    constexpr int SEGMENTS_PER_BLOCK = 256;
+    constexpr int SEGMENTS_PER_BLOCK = 32;
     constexpr int SEGMENT_SIZE = 2097152;
 
     struct chunk_info
